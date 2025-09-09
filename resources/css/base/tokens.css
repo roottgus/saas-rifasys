@@ -1,0 +1,20 @@
+@layer base{
+  :root{
+    --primary:#1d4ed8; /* se sobrescribe desde el layout */
+    --bg:#ffffff;
+    --text:#0f172a;
+
+    /* grid defaults (usados por grid-simple) */
+    --chip-w:60px;
+    --chip-h:28px;
+    --chip-bg:#f2f4f8;
+    --chip-bd:#dfe3ea;
+    --chip-tx:#0f172a;
+    --chip-bg-hover:#e9edf4;
+    --chip-selected:#034fad;
+  }
+  body{
+    @apply bg-[var(--bg)] text-[var(--text)] antialiased;
+    font-feature-settings:"ss01" on, "cv02" on;
+  }
+}

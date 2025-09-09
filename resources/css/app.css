@@ -1,0 +1,132 @@
+@import '@fortawesome/fontawesome-free/css/all.min.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Oculta elementos con x-cloak de AlpineJS */
+[x-cloak] { display: none !important; }
+
+/* Animación fadeIn para mostrar bloques suavemente */
+.animate-fade-in {
+    animation: fadeIn 2.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(24px);}
+    to   { opacity: 1; transform: translateY(0);}
+}
+
+/* Inputs/botones globales */
+input[type="text"], input[type="email"], input[type="number"], input[type="date"], select {
+    border-radius: 0.65rem;
+    background: #f9fafb;
+    border: 1.2px solid #d1d5db;
+    transition: border-color 0.2s;
+}
+input:focus, select:focus {
+    border-color: var(--primary);
+    outline: none;
+}
+button { border-radius: 0.7rem; font-weight: 600; transition: all .18s; }
+
+/* Oculta scrollbars solo visualmente */
+.scrollbar-hide {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE 10+ */
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Webkit */
+}
+
+/* --- Animaciones premium para preloader --- */
+@keyframes progressbar {
+  0% { width: 0%; }
+  80% { width: 95%; }
+  100% { width: 100%; }
+}
+.animate-progressbar {
+  animation: progressbar 2.6s cubic-bezier(.55,0,.2,1) infinite;
+}
+
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+.animate-spin-slow {
+  animation: spin-slow 2.8s linear infinite;
+}
+
+@keyframes fadein {
+  from { opacity: 0; transform: scale(.97);}
+  to { opacity: 1; transform: scale(1);}
+}
+.animate-fadein { animation: fadein 0.7s cubic-bezier(.25,.8,.25,1) both; }
+
+/* Sombra y detalle PRO para el preloader */
+.pre-card, .pre-anim__card {
+    box-shadow: 0 6px 40px 0 rgba(36,66,132,0.13), 0 1.5px 8px 0 rgba(16,16,40,0.07);
+    border-radius: 1.2rem;
+    border: 1.5px solid #e0e7ef;
+}
+
+.pre-anim__bar, .pre-bar {
+    margin-top: 10px;
+    margin-bottom: 0;
+}
+
+/* --- Animación bump para método de pago seleccionado, highlight búsqueda, etc --- */
+@keyframes bump {
+  0%   { transform: scale(1);}
+  40%  { transform: scale(1.13);}
+  60%  { transform: scale(0.98);}
+  100% { transform: scale(1.07);}
+}
+.animate-bump {
+  animation: bump 0.23s cubic-bezier(0.22, 0.61, 0.36, 1) 1;
+}
+
+/* Animación búsqueda - highlight */
+@keyframes highlightPulse {
+  0%   { box-shadow: 0 0 0 4px var(--primary, #2563ebaa); }
+  60%  { box-shadow: 0 0 0 10px var(--primary, #2563eb00); }
+  100% { box-shadow: 0 0 0 0   var(--primary, #2563eb00); }
+}
+
+/* Layout de grid para números (puedes llevar esto a tailwind.config si quieres 100% pure tailwind) */
+#numbersGrid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+@media (min-width: 640px) {
+  #numbersGrid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+}
+@media (min-width: 768px) {
+  #numbersGrid { grid-template-columns: repeat(10, minmax(0, 1fr)); }
+}
+
+.num.is-search:not(.selected) {
+  background: #fffbeb;
+  color: #b45309 !important;
+  border-color: #fde68a;
+  animation: bump 0.22s;
+}
+
+/* ===== Flechas Swiper (solo rifas) ===== */
+.swiper-rifas .swiper-button-prev,
+.swiper-rifas .swiper-button-next {
+  width: 36px;
+  height: 36px;
+  border-radius: 9999px;
+  background: #fff;
+  color: var(--primary);
+  box-shadow: 0 6px 18px rgba(0,0,0,.12);
+  top: 46%;
+  transform: translateY(-50%);
+  z-index: 30;
+  pointer-events: auto;
+}
+.swiper-rifas .swiper-button-prev::after,
+.swiper-rifas .swiper-button-next::after {
+  font-size: 16px;
+  font-weight: 900;
+}
+
+
