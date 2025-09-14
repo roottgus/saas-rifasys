@@ -2,50 +2,37 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-// >>> Añadidos para Filament Tenancy <<<
+// Filament Tenancy
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasTenants;
 use Filament\Panel;
 use Illuminate\Database\Eloquent\Model as EloquentModel;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
+// Spatie Permission
+use Spatie\Permission\Traits\HasRoles;
+
+// (opcional, solo para tipar y usar abajo)
+use App\Models\Tenant;
+use Illuminate\Support\Collection;
+
 class User extends Authenticatable implements FilamentUser, HasTenants
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
-    
+    use HasFactory, Notifiable, HasRoles;
 
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var list<string>
-     */
-    protected $fillable = [
-        'name',
-        'email',
-        'password',
-    ];
+    // Asegura el guard correcto para permisos/roles
+    protected string $guard_name = 'web';
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var list<string>
-     */
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
+    /** @var list<string> */
+    protected $fillable = ['name','email','password'];
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
+    /** @var list<string> */
+    protected $hidden = ['password','remember_token'];
+
     protected function casts(): array
     {
         return [
@@ -55,30 +42,60 @@ class User extends Authenticatable implements FilamentUser, HasTenants
     }
 
     // ================================
-    //  Filament Tenancy (requerido)
+    //  Filament Tenancy
     // ================================
-
-    /** Relación many-to-many: usuarios ↔ tenants (tabla pivote tenant_user) */
     public function tenants(): BelongsToMany
     {
-        return $this->belongsToMany(\App\Models\Tenant::class, 'tenant_user');
+        return $this->belongsToMany(Tenant::class, 'tenant_user');
     }
 
-    /** ¿Puede este usuario acceder a un panel Filament? (aquí, sí) */
+    /**
+     * Controla acceso por panel:
+     * - admin: solo super_admin
+     * - tenant: super_admin / tenant_admin / tenant_demo
+     */
     public function canAccessPanel(Panel $panel): bool
     {
-        return true;
+        return match ($panel->getId()) {
+            'admin'  => $this->hasRole('super_admin'),
+
+            'tenant' => $this->hasRole('super_admin') // super_admin entra siempre
+                || (
+                    $this->hasAnyRole(['tenant_admin', 'tenant_demo'])
+                    && $this->tenants()->exists()       // debe pertenecer a algún tenant
+                ),
+
+            default  => false,
+        };
     }
 
-    /** Lista de tenants a los que el usuario tiene acceso (para Filament) */
-    public function getTenants(Panel $panel): \Illuminate\Support\Collection
+    /**
+     * Lista de tenants accesibles:
+     * - super_admin ve TODOS los tenants en el panel tenant
+     * - resto: solo los vinculados por pivote
+     *
+     * @return \Illuminate\Support\Collection<int, \App\Models\Tenant>
+     */
+    public function getTenants(Panel $panel): Collection
     {
+        if ($panel->getId() === 'tenant' && $this->hasRole('super_admin')) {
+            return Tenant::query()->orderBy('name')->get();
+        }
+
         return $this->tenants()->get();
     }
 
-    /** ¿Puede acceder a un tenant específico? (verifica relación en pivote) */
+    /**
+     * ¿Puede acceder a un tenant específico?
+     * - super_admin: sí
+     * - resto: solo si está vinculado
+     */
     public function canAccessTenant(EloquentModel $tenant): bool
     {
+        if ($this->hasRole('super_admin')) {
+            return true;
+        }
+
         return $this->tenants()->whereKey($tenant->getKey())->exists();
     }
 }

@@ -3,10 +3,19 @@
     // Recibe: $rifa, $tenant, $primary
     $sold  = $rifa->numeros()->where('estado','pagado')->count();
     $total = $rifa->total_numeros ?? 0;
+    $fechaSorteo = $rifa->ends_at;
+    $yaFinalizada = $fechaSorteo && $fechaSorteo->isPast();
 @endphp
-<div class="bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col items-center max-w-xs w-full relative">
-    {{-- Badge ACTIVA TITILANDO --}}
-    @if($rifa->estado === 'activa')
+
+<div class="rifa-card bg-white rounded-2xl shadow-xl overflow-hidden flex flex-col items-center max-w-xs w-full relative
+    @if($yaFinalizada) rifa-finalizada @endif">
+
+    {{-- Badge de estado --}}
+    @if($yaFinalizada)
+        <span class="absolute top-3 left-3 z-10 px-3 py-1 rounded-full text-xs font-extrabold uppercase text-white shadow-lg bg-orange-500">
+            Finalizada
+        </span>
+    @elseif($rifa->estado === 'activa')
         <span class="badge-activa-animada absolute top-3 left-3 z-10 px-3 py-1 rounded-full text-xs font-extrabold uppercase text-white shadow-lg"
               style="background: {{ $primary }};">
             <span class="inline-block align-middle mr-1 animate-pulse">
@@ -14,7 +23,12 @@
             </span>
             Activa
         </span>
+    @elseif($rifa->estado === 'pausada')
+        <span class="absolute top-3 left-3 z-10 px-3 py-1 rounded-full text-xs font-extrabold uppercase text-white shadow-lg bg-gray-500">
+            Pausada
+        </span>
     @endif
+
     {{-- Banner de rifa --}}
     <div class="flex justify-center p-3">
         @if($rifa->banner_path)
@@ -69,9 +83,16 @@
                 </div>
             </div>
         </div>
-        <a href="{{ url('/t/'.$tenant->slug.'/r/'.$rifa->slug) }}"
-           class="mt-2 bg-[var(--primary)] hover:bg-[var(--primary)]/90 text-white font-semibold rounded-lg px-6 py-2 text-base shadow-md transition w-fit mx-auto">
-            Ver Evento
-        </a>
+
+        {{-- Botón/estado según finalizada --}}
+        @if(!$yaFinalizada)
+            <a href="{{ url('/t/'.$tenant->slug.'/r/'.$rifa->slug) }}"
+               class="mt-2 bg-[var(--primary)] hover:bg-[var(--primary)]/90 text-white font-semibold rounded-lg px-6 py-2 text-base shadow-md transition w-fit mx-auto">
+                Ver Evento
+            </a>
+        @else
+            <div class="mt-2 text-sm font-bold text-gray-400 italic">Evento finalizado</div>
+        @endif
+
     </div>
 </div>

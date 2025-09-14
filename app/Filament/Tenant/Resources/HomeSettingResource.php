@@ -136,29 +136,29 @@ class HomeSettingResource extends Resource
                         ->icon('heroicon-m-photo')
                         ->schema([
                             Section::make('Banner Principal')
-                                ->description('La imagen principal que se mostrará en la portada')
-                                ->schema([
-                                    Forms\Components\FileUpload::make('banner_path')
-                                        ->label('Banner')
-                                        ->directory('banners')
-                                        ->image()
-                                        ->imageEditor()
-                                        ->imageEditorAspectRatios([
-                                            '16:9',
-                                            '4:3',
-                                            '1:1',
-                                        ])
-                                        ->maxSize(4096)
-                                        ->optimize('webp')
-                                        ->resize(50)
-                                        ->columnSpanFull()
-                                        ->helperText('Recomendado: 1920x1080px, máximo 4MB. Formatos: JPG, PNG, WebP')
-                                        ->imagePreviewHeight('300')
-                                        ->panelLayout('integrated')
-                                        ->removeUploadedFileButtonPosition('right')
-                                        ->uploadButtonPosition('left')
-                                        ->uploadProgressIndicatorPosition('left'),
-                                ]),
+    ->description('La imagen principal que se mostrará en la portada')
+    ->schema([
+        Forms\Components\FileUpload::make('banner_path')
+    ->label('Banner')
+    ->directory('banners')
+    ->image()
+    ->imageEditor()
+    ->imageEditorAspectRatios([
+        '16:9',
+        '4:3',
+        '1:1',
+    ])
+    ->maxSize(4096)
+    ->columnSpanFull()
+    ->helperText('Recomendado: 1920x1080px, máximo 4MB. Formatos: JPG, PNG, WebP')
+    ->imagePreviewHeight('300')
+    ->panelLayout('integrated')
+    ->removeUploadedFileButtonPosition('right')
+    ->uploadButtonPosition('left')
+    ->uploadProgressIndicatorPosition('left')
+
+    ])
+
                         ]),
 
                     // Tab 3: Configuración del Sorteo

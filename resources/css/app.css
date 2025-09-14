@@ -129,4 +129,9 @@ button { border-radius: 0.7rem; font-weight: 600; transition: all .18s; }
   font-weight: 900;
 }
 
-
+.rifa-finalizada {
+    background: #e5e7eb !important;
+    opacity: 0.75;
+    filter: grayscale(0.18) blur(0.2px);
+    pointer-events: none; /* opcional, si no quieres que sea clickable */
+}

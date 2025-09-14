@@ -19,7 +19,8 @@ class SetTenant
         if ($slug) {
             $tenant = Tenant::where('slug', $slug)->first();
             if ($tenant) {
-                app()->instance(Tenant::class, $tenant);
+                app()->instance('currentTenant', $tenant);
+
             }
         }
         return $next($request);

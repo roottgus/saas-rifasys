@@ -73,4 +73,9 @@ class FaqItemResource extends Resource
             'edit'   => Pages\EditFaqItem::route('/{record}/edit'),
         ];
     }
+    public static function shouldRegisterNavigation(): bool
+{
+    return false;
+}
+
 }

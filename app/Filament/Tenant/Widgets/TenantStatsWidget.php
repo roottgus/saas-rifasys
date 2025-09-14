@@ -1,15 +1,11 @@
 <?php
 
-// ============================================
-// Widget 2: TenantStatsWidget.php
-// Ubicación: app/Filament/Tenant/Widgets/TenantStatsWidget.php
-// ============================================
-
 namespace App\Filament\Tenant\Widgets;
 
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Number;
+use Filament\Facades\Filament;
 
 class TenantStatsWidget extends BaseWidget
 {
@@ -18,71 +14,120 @@ class TenantStatsWidget extends BaseWidget
     
     protected function getStats(): array
     {
-        $tenant = auth()->user()->currentTenant;
-        
-        // Aquí debes ajustar según tus modelos reales
-        // Estos son ejemplos para un sistema de rifas
-        
+        $tenant = Filament::getTenant();
+        if (!$tenant) {
+            return [
+                Stat::make('Sin datos', 'N/A')
+                    ->description('Seleccione un negocio')
+                    ->color('gray'),
+            ];
+        }
+
+        // Rifas activas
+        $rifasActivas = \App\Models\Rifa::where('tenant_id', $tenant->id)
+            ->where('estado', 'activa')
+            ->count();
+
+        // Números vendidos: estado 'pagado' (tu enum real)
+        $numerosVendidos = \App\Models\RifaNumero::whereHas('rifa', function($q) use ($tenant) {
+            $q->where('tenant_id', $tenant->id);
+        })->where('estado', 'pagado')->count();
+
+        // Ingresos del mes actual: status 'paid' (tu enum real)
+        $ingresosMes = \App\Models\Order::where('tenant_id', $tenant->id)
+            ->where('status', 'paid')
+            ->whereMonth('created_at', now()->month)
+            ->whereYear('created_at', now()->year)
+            ->sum('total_amount');
+
+        // Participantes únicos: teléfonos distintos en órdenes pagadas
+        $participantes = \App\Models\Order::where('tenant_id', $tenant->id)
+            ->where('status', 'paid')
+            ->distinct('customer_phone')
+            ->count('customer_phone');
+
         return [
-            Stat::make('Rifas Activas', $this->getActiveRaffles())
-                ->description('2 próximas a finalizar')
+            Stat::make('Rifas Activas', $rifasActivas)
+                ->description('Activas ahora mismo')
                 ->descriptionIcon('heroicon-m-clock')
                 ->color('primary')
-                ->chart([3, 4, 4, 5, 6, 7, 8])
-                ->extraAttributes([
-                    'class' => 'cursor-pointer hover:ring-2 hover:ring-primary-500 transition-all duration-300',
-                ]),
-                
-            Stat::make('Números Vendidos', Number::format($this->getSoldTickets()))
-                ->description('85% de capacidad')
+                ->chart([0, 0, 0, 0, 0, 0, $rifasActivas]),
+
+            Stat::make('Números Vendidos', Number::format($numerosVendidos))
+                ->description($this->getPorcentajeVendidos($tenant, $numerosVendidos))
                 ->descriptionIcon('heroicon-m-ticket')
                 ->color('success')
-                ->chart([65, 70, 75, 80, 85, 82, 85])
-                ->extraAttributes([
-                    'class' => 'cursor-pointer hover:ring-2 hover:ring-success-500 transition-all duration-300',
-                ]),
-                
-            Stat::make('Ingresos del Mes', '$' . Number::format($this->getMonthlyRevenue()))
-                ->description('+23% vs mes anterior')
+                ->chart([0, 0, 0, 0, 0, 0, $numerosVendidos]),
+
+            Stat::make('Ingresos del Mes', '$' . Number::format($ingresosMes, 2))
+                ->description($this->getCrecimientoIngresosMes($tenant))
                 ->descriptionIcon('heroicon-m-arrow-trending-up')
                 ->color('warning')
-                ->chart([20, 25, 30, 35, 40, 45, 52])
-                ->extraAttributes([
-                    'class' => 'cursor-pointer hover:ring-2 hover:ring-warning-500 transition-all duration-300',
-                ]),
-                
-            Stat::make('Participantes', Number::format($this->getParticipants()))
-                ->description('48 nuevos esta semana')
+                ->chart([0, 0, 0, 0, 0, 0, $ingresosMes]),
+
+            Stat::make('Participantes', Number::format($participantes))
+                ->description($this->getNuevosParticipantesSemana($tenant))
                 ->descriptionIcon('heroicon-m-users')
                 ->color('info')
-                ->chart([120, 125, 130, 135, 140, 145, 150])
-                ->extraAttributes([
-                    'class' => 'cursor-pointer hover:ring-2 hover:ring-info-500 transition-all duration-300',
-                ]),
+                ->chart([0, 0, 0, 0, 0, 0, $participantes]),
         ];
     }
-    
-    private function getActiveRaffles(): int
+
+    /**
+     * Porcentaje de números vendidos en todas las rifas del tenant
+     */
+    private function getPorcentajeVendidos($tenant, $numerosVendidos): string
     {
-        // Reemplaza con tu lógica real
-        return 8;
+        $totalNumeros = \App\Models\RifaNumero::whereHas('rifa', function($q) use ($tenant) {
+            $q->where('tenant_id', $tenant->id);
+        })->count();
+
+        $porcentaje = $totalNumeros > 0 ? round(($numerosVendidos / $totalNumeros) * 100) : 0;
+        return "{$porcentaje}% de capacidad";
     }
-    
-    private function getSoldTickets(): int
+
+    /**
+     * Crecimiento de ingresos contra el mes anterior (status 'paid')
+     */
+    private function getCrecimientoIngresosMes($tenant): string
     {
-        // Reemplaza con tu lógica real
-        return 3456;
+        $mesActual = now()->month;
+        $anioActual = now()->year;
+        $mesAnterior = $mesActual == 1 ? 12 : $mesActual - 1;
+        $anioAnterior = $mesActual == 1 ? $anioActual - 1 : $anioActual;
+
+        $actual = \App\Models\Order::where('tenant_id', $tenant->id)
+            ->where('status', 'paid')
+            ->whereMonth('created_at', $mesActual)
+            ->whereYear('created_at', $anioActual)
+            ->sum('total_amount');
+
+        $anterior = \App\Models\Order::where('tenant_id', $tenant->id)
+            ->where('status', 'paid')
+            ->whereMonth('created_at', $mesAnterior)
+            ->whereYear('created_at', $anioAnterior)
+            ->sum('total_amount');
+
+        if ($anterior == 0) return 'Sin historial';
+        $variacion = round((($actual - $anterior) / $anterior) * 100);
+        $icon = $variacion >= 0 ? '+' : '';
+        return "{$icon}{$variacion}% vs mes anterior";
     }
-    
-    private function getMonthlyRevenue(): float
+
+    /**
+     * Nuevos participantes esta semana (por teléfono, status 'paid')
+     */
+    private function getNuevosParticipantesSemana($tenant): string
     {
-        // Reemplaza con tu lógica real
-        return 12543.50;
-    }
-    
-    private function getParticipants(): int
-    {
-        // Reemplaza con tu lógica real
-        return 567;
+        $inicioSemana = now()->startOfWeek();
+        $finSemana = now()->endOfWeek();
+
+        $nuevos = \App\Models\Order::where('tenant_id', $tenant->id)
+            ->where('status', 'paid')
+            ->whereBetween('created_at', [$inicioSemana, $finSemana])
+            ->distinct('customer_phone')
+            ->count('customer_phone');
+
+        return "$nuevos nuevos esta semana";
     }
 }

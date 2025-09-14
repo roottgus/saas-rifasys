@@ -64,4 +64,10 @@ class LegalSettingResource extends Resource
             'edit'   => Pages\EditLegalSetting::route('/{record}/edit'),
         ];
     }
+
+    public static function shouldRegisterNavigation(): bool
+{
+    return false;
+}
+
 }

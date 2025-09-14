@@ -2,6 +2,7 @@
 
 @section('content')
 @php
+  $rifa    = $rifa ?? $order->rifa;
   $tickets = $order->items?->pluck('numero')->sort();
   $total   = number_format((float)($order->total_amount ?? 0), 2, '.', ',');
   $primary = '#b91c1c'; // rojo fuerte fijo
@@ -19,7 +20,7 @@
   </h2>
   <div class="p muted" style="font-size:14px;">
     Hola {{ $customerName ?? $order->customer_name ?? 'Cliente' }}, tu comprobante no pudo ser validado.<br>
-    @if(isset($rejectReason))
+    @if(!empty($rejectReason))
       <span style="color:#b91c1c;">Motivo: {{ $rejectReason }}</span><br>
     @endif
     Por favor, revisa la información y vuelve a enviar tu comprobante correctamente o utiliza otro método de pago.
@@ -37,7 +38,7 @@
         </tr>
         <tr>
           <td style="padding:6px 0;">Rifa:</td>
-          <td style="padding:6px 0;font-weight:700;">{{ $rifa->titulo ?? '-' }}</td>
+          <td style="padding:6px 0;font-weight:700;">{{ $rifa->titulo ?? $rifa->nombre ?? '-' }}</td>
         </tr>
         <tr>
           <td style="padding:6px 0;">Números:</td>
