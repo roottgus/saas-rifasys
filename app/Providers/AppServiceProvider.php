@@ -3,7 +3,6 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
-use Livewire\Livewire;
 use Carbon\Carbon;
 
 class AppServiceProvider extends ServiceProvider
@@ -21,9 +20,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-       \Carbon\Carbon::setLocale(config('app.locale'));
-       \App\Models\Order::observe(\App\Observers\OrderObserver::class);
-       
-
+        Carbon::setLocale(config('app.locale'));
+        
+        // Observer para órdenes
+        \App\Models\Order::observe(\App\Observers\OrderObserver::class);
+        
+        // Observer para contratos de servicio (AUTOMÁTICO para contract_number y uuid)
+        \App\Models\Contract::observe(\App\Observers\ContractObserver::class);
     }
 }

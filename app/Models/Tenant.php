@@ -55,6 +55,14 @@ class Tenant extends Model
         return $this->hasMany(Rifa::class);
     }
 
+    /**
+     * Contratos de servicio generados para este tenant
+     */
+    public function contracts(): HasMany
+    {
+        return $this->hasMany(\App\Models\Contract::class);
+    }
+
     /** === CMS === */
     public function brandSettings(): HasMany
     {

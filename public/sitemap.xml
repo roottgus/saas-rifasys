@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    
+    <!-- Página Principal (Landing) -->
+    <url>
+        <loc>https://rifasys.com/</loc>
+        <lastmod>2024-01-15T00:00:00+00:00</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>1.0</priority>
+    </url>
+    
+    <url>
+    <loc>https://rifasys.com/contacto</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.8</priority>
+</url>
+
+<url>
+    <loc>https://rifasys.com/terminos</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+</url>
+
+<url>
+    <loc>https://rifasys.com/privacidad</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+</url>
+
+    
+</urlset>

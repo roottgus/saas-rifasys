@@ -185,12 +185,13 @@ class RifaResource extends Resource
                                             ->native(false)
                                             ->required(),
 
-                                        Forms\Components\DateTimePicker::make('starts_at')
-                                            ->label('Fecha de inicio')
-                                            ->seconds(false)
-                                            ->native(false)
-                                            ->displayFormat('d/m/Y H:i')
-                                            ->minDate(now()),
+                                        Forms\Components\DatePicker::make('starts_at')
+    ->label('Fecha de inicio')
+    ->default(today())
+    ->minDate(today())
+    ->native(false)
+    ->displayFormat('d/m/Y'),
+
 
                                         Forms\Components\DateTimePicker::make('ends_at')
                                             ->label('Fecha de cierre')
