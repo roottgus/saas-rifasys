@@ -64,22 +64,33 @@
                     {{ $heroSub }}
                 </div>
             @endif
+
+            {{-- Descripción personalizada SI HAY --}}
             @if($descripcionEmpresa)
-                <div class="text-base md:text-lg font-bold text-gray-700 mb-1">
+                <div class="text-base md:text-lg text-gray-600 font-medium mb-1 max-w-lg mx-auto text-center">
                     {!! nl2br(e($descripcionEmpresa)) !!}
                 </div>
             @endif
+
+            {{-- Texto motivador SIEMPRE (debajo de la descripción o solo) --}}
+            <div class="text-base md:text-lg text-[var(--primary)] font-semibold mb-3 max-w-lg mx-auto text-center">
+                ¡Bienvenido! Compra tu ticket y participa!
+            </div>
+
             @if($home?->lugar)
                 <div class="text-xs font-semibold text-gray-400 uppercase mb-1">{{ $home->lugar }}</div>
             @endif
 
             <a href="#disponibles"
-               class="mt-3 bg-red-600 hover:bg-red-700 text-white text-lg font-bold px-8 py-3 rounded-xl shadow transition">
+               class="mt-3 bg-[var(--primary)] hover:bg-[var(--primary)]/90 text-white text-lg font-bold px-8 py-3 rounded-xl shadow transition">
                 Lista de Disponibles
             </a>
         </div>
     </div>
 </section>
+
+
+
 
 {{-- DISPONIBLES: abajo, centrado, grid/slider de rifas --}}
 <div class="max-w-6xl mx-auto w-full px-4 bg-white pt-8" id="disponibles">
@@ -132,5 +143,34 @@
 
 {{-- FAQ genérico debajo de rifas --}}
 @include('store.partials.faq', ['primary' => $primary])
+
+{{-- BADGE de seguridad y Cards de Confianza --}}
+<div class="w-full max-w-5xl mx-auto flex flex-col items-center justify-center gap-6 mt-6 px-3">
+    <!-- Security Badge -->
+    <div class="flex flex-wrap justify-center items-center gap-2 text-gray-500">
+        <i class="fas fa-shield-alt text-lg text-green-500"></i>
+        <span class="text-xs font-semibold">Pago Seguro y Encriptado</span>
+        <i class="fab fa-cc-visa text-lg"></i>
+        <i class="fab fa-cc-mastercard text-lg"></i>
+        <i class="fab fa-cc-paypal text-lg"></i>
+    </div>
+    <!-- Info Cards - fila horizontal en mobile -->
+    <div class="grid grid-cols-3 gap-2 w-full max-w-xl">
+        <div class="bg-white/80 rounded-xl p-3 text-center shadow border border-blue-100 flex flex-col items-center">
+            <i class="fas fa-trophy text-xl text-yellow-500 mb-1 animate-bounce"></i>
+            <div class="font-bold text-xs text-gray-800">Premios<br>Garantizados</div>
+        </div>
+        <div class="bg-white/80 rounded-xl p-3 text-center shadow border border-blue-100 flex flex-col items-center">
+            <i class="fas fa-users text-xl text-blue-500 mb-1 animate-pulse"></i>
+            <div class="font-bold text-xs text-gray-800">+10,000<br>Usuarios</div>
+        </div>
+        <div class="bg-white/80 rounded-xl p-3 text-center shadow border border-blue-100 flex flex-col items-center">
+            <i class="fas fa-certificate text-xl text-green-500 mb-1 animate-spin-slow"></i>
+            <div class="font-bold text-xs text-gray-800">100%<br>Confiable</div>
+        </div>
+    </div>
+</div>
+
+
 
 @endsection

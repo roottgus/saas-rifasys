@@ -55,7 +55,6 @@
             <label class="block font-bold mb-1 text-gray-800">
               WhatsApp <span class="text-red-500">*</span>
             </label>
-
             <input id="iti_whatsapp_reserva"
                    type="tel"
                    class="input input-bordered w-full"
@@ -63,19 +62,13 @@
                    inputmode="tel"
                    autocomplete="tel"
                    required>
-
-            {{-- Campos ocultos para backend (mismo contrato que ya tenías) --}}
-            <input type="hidden" name="cc" id="res_cc">                 {{-- +58 --}}
-            <input type="hidden" name="whatsapp" id="res_whatsapp">     {{-- 4140000000 (solo dígitos) --}}
-            <input type="hidden" name="whatsapp_full" id="res_whatsapp_full"> {{-- +58 4140000000 --}}
-
-            {{-- Ayuda / vista previa --}}
+            <input type="hidden" name="cc" id="res_cc">
+            <input type="hidden" name="whatsapp" id="res_whatsapp">
+            <input type="hidden" name="whatsapp_full" id="res_whatsapp_full">
             <p class="text-xs text-gray-500 mt-1">
               Se guardará como
               <span id="res_wpp_preview" class="font-semibold text-gray-700">+58 __________</span>.
             </p>
-
-            {{-- Error opcional --}}
             <p id="res_wpp_error" class="text-xs text-red-600 mt-1 hidden">Ingresa un WhatsApp válido.</p>
           </div>
 
@@ -126,7 +119,7 @@
 <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.6/build/js/utils.js"></script>
 
 <script>
-  (function initReservaPhone(){
+(function initReservaPhone(){
     function onReady(cb){ if(document.readyState!=='loading') cb(); else document.addEventListener('DOMContentLoaded', cb); }
     onReady(function(){
       var input = document.getElementById('iti_whatsapp_reserva');
@@ -164,7 +157,6 @@
       var form = document.getElementById('formReserva');
       if(form){
         form.addEventListener('submit', function(e){
-          // Si la librería dice que no es válido, mostramos error suave y cancelamos
           if(!iti.isValidNumber()){
             e.preventDefault();
             if(err) err.classList.remove('hidden');
@@ -173,17 +165,66 @@
         });
       }
 
-      // Si el modal se abre oculto, refrescamos ancho/lugar de bandera al mostrar
+      // Ajuste de bandera si modal se muestra (bugfix mobile)
       var modal = document.getElementById('reservaPagoModal');
       if(modal){
         var observer = new MutationObserver(function(){
           if(getComputedStyle(modal).display !== 'none'){
-            // Pequeño truco para recalcular layout
             setTimeout(function(){ window.dispatchEvent(new Event('resize')); }, 60);
           }
         });
         observer.observe(modal, { attributes:true, attributeFilter:['class','style'] });
       }
     });
-  })();
+})();
+</script>
+
+{{-- INTEGRACIÓN: Escucha selección y actualiza el modal --}}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Escucha el evento personalizado emitido desde landipageCheckout
+    window.addEventListener('abrir-modal-pago', function(e) {
+        const { tipo, numeros, cantidad, total } = e.detail || {};
+        const numsBox = document.getElementById('modalNums');
+        if (numsBox) {
+            numsBox.innerHTML = '';
+            if (tipo === 'manual' && numeros && numeros.length) {
+                // Mostramos los números seleccionados manualmente
+                numsBox.innerHTML = `<div class="mb-2 text-base font-bold text-blue-700">${numeros.length} número(s) seleccionado(s):</div>` +
+                  numeros.map(num =>
+                    `<span class="inline-flex items-center justify-center rounded-lg bg-blue-100 border border-blue-300 text-blue-900 font-bold px-3 py-1 mx-1 my-1 text-base shadow">#${num}</span>`
+                  ).join('');
+            } else if (tipo === 'aleatorio') {
+                // Solo cantidad seleccionada al azar
+                numsBox.innerHTML = `<span class="inline-flex items-center justify-center rounded-lg bg-blue-100 border border-blue-300 text-blue-900 font-bold px-3 py-1 mx-1 my-1 text-base">${cantidad} boleto${cantidad==1?'':'s'} seleccionado${cantidad==1?'':'s'} al azar</span>`;
+            } else {
+                numsBox.innerHTML = `<span class="text-sm text-gray-500">No hay boletos seleccionados.</span>`;
+            }
+        }
+        // Total actualizado
+        const sumBox = document.getElementById('modalSum');
+        if (sumBox) sumBox.textContent = `$${parseFloat(total).toFixed(2)}`;
+
+        // Limpiar mensaje de error o mensaje extra
+        const msg = document.getElementById('modalMsg');
+        if (msg) msg.textContent = '';
+    });
+
+    // Cerrar el modal y limpiar al cerrar (profesional)
+    document.querySelectorAll('.modal-close').forEach(btn => {
+        btn.addEventListener('click', function() {
+            setTimeout(() => {
+                const numsBox = document.getElementById('modalNums');
+                if (numsBox) numsBox.innerHTML = '';
+                const sumBox = document.getElementById('modalSum');
+                if (sumBox) sumBox.textContent = '$0.00';
+                const msg = document.getElementById('modalMsg');
+                if (msg) msg.textContent = '';
+                let modal = document.getElementById('reservaPagoModal');
+                if (modal) modal.style.opacity = '0';
+                setTimeout(() => { modal.classList.add('hidden'); }, 220);
+            }, 50);
+        });
+    });
+});
 </script>

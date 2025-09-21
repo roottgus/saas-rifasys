@@ -3,7 +3,6 @@ import { firstById } from './helpers';
 
 export function initCheckoutPage() {
   // Botón "Cambiar" (abrir sheet de números si existe)
-  
   const changeBtn = document.getElementById('changeSelection') || document.getElementById('btnChangeSelection');
   changeBtn?.addEventListener('click', (e) => {
     e.preventDefault();
@@ -98,18 +97,17 @@ export function initCheckoutPage() {
       form.dataset.payUrl = url;
       return url;
     }
-    // Fallback por si acaso: intenta extraerlos de la URL si no están en el form (muy raro)
+    // Fallback por si acaso
     const pathParts = window.location.pathname.split('/').filter(Boolean);
     if (pathParts[0] === 't' && pathParts[2] === 'checkout' && pathParts[3]) {
       const url = `/t/${pathParts[1]}/checkout/${pathParts[3]}/pagar`;
       form.dataset.payUrl = url;
       return url;
     }
-    // Error: no hay manera segura de construir la URL
     return '';
   }
 
-  // Importante: el botón es type="button", así que disparamos el submit manual
+  // Botón "Confirmar compra" dispara el submit
   btnSubmit?.addEventListener('click', (e) => {
     e.preventDefault();
     form.requestSubmit ? form.requestSubmit() : form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true })); 
@@ -160,7 +158,7 @@ export function initCheckoutPage() {
         data = { ok: false, message: text || 'Error procesando la respuesta' }; 
       }
 
-      // Verificar si el pago fue exitoso (más flexible)
+      // Pago exitoso (condiciones flexibles)
       const isSuccess = res.ok && (
         data?.ok === true || 
         data?.status === 'ok' || 
@@ -170,56 +168,35 @@ export function initCheckoutPage() {
       );
 
       if (isSuccess) {
-        // Mostrar SweetAlert si está disponible
-        if (typeof Swal !== 'undefined') {
-          await Swal.fire({
-            icon: 'success',
-            title: '¡Pago enviado!',
-            text: data?.message || 'Tu pago ha sido recibido y será verificado pronto.',
-            showConfirmButton: false,
-            timer: 2500,
-            background: '#f0fdf4',
-            color: '#166534',
-            customClass: { popup: 'animate__animated animate__fadeInDown' }
-          });
-        } else {
-          // Si no hay SweetAlert, mostrar mensaje normal
-          showInlineMsg('¡Pago procesado exitosamente!', 'success');
+        // 1) Prioriza redirección del backend
+        const redirect = data?.redirect || data?.redirect_url;
+        if (redirect) {
+          window.location.href = redirect;
+          return;
         }
 
-        // Mostrar sección de éxito y ocultar formulario
+        // 2) Fallback: construir URL de confirmación
+        const orderCode  = data?.order_code || data?.code || form.dataset.orderCode || '';
+        const tenantSlug = form.dataset.tenantSlug || window.location.pathname.split('/')[2];
+        if (tenantSlug && orderCode) {
+          const confirmUrl = `/t/${tenantSlug}/checkout/${orderCode}/confirmacion`;
+          window.location.href = confirmUrl;
+          return;
+        }
+
+        // 3) Si por algún motivo no podemos redirigir, mostramos tu UI de éxito
         if (inlineSuccess) {
           inlineSuccess.classList.remove('hidden');
           form.classList.add('hidden');
         }
-
-        // Mostrar código de orden
         if (okOrderCodeEl) {
-          const orderCode = data?.order_code || data?.code || form.dataset.orderCode || '';
-          okOrderCodeEl.textContent = orderCode;
+          okOrderCodeEl.textContent = orderCode || '';
         }
-
-        // Manejar redirección si existe
-        if (data?.redirect_url) {
-          setTimeout(() => {
-            window.location.href = data.redirect_url;
-          }, 3000);
-        } else if (data?.order_code || data?.code) {
-          // Intentar construir URL de confirmación
-          const orderCode = data.order_code || data.code;
-          const tenantSlug = form.dataset.tenantSlug || window.location.pathname.split('/')[2];
-          if (tenantSlug && orderCode) {
-            const confirmUrl = `/t/${tenantSlug}/checkout/${orderCode}/confirmacion`;
-            setTimeout(() => {
-              window.location.href = confirmUrl;
-            }, 3000);
-          }
-        }
-
+        showInlineMsg('Pago enviado, será verificado.', 'success');
         return;
       }
 
-      // Manejo de errores específicos
+      // Errores comunes
       if (res.status === 422) {
         const errorMsg = data?.message || 'Por favor revisa los datos ingresados.';
         const fieldErrors = data?.errors ? Object.values(data.errors).flat().join('. ') : '';

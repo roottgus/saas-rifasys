@@ -14,11 +14,13 @@ class Kernel extends ConsoleKernel
     {
         // Libera números reservados de órdenes vencidas (pending por defecto)
         $schedule->command('app:expirar-reservas')
-    ->everyFiveMinutes()
-    ->withoutOverlapping();
+            ->everyFiveMinutes()
+            ->withoutOverlapping();
 
         // Si quisieras incluir también submitted:
-        // $schedule->command('orders:release-expired --include-submitted')->everyFiveMinutes()->withoutOverlapping();
+        // $schedule->command('orders:release-expired --include-submitted')
+        //     ->everyFiveMinutes()
+        //     ->withoutOverlapping();
     }
 
     /**

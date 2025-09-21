@@ -24,15 +24,14 @@ class Rifa extends Model
     'estado',
     'starts_at',
     'ends_at',
-    // NUEVOS (sorteo / lotería):
     'lottery_name',
     'lottery_type',
     'draw_at',
     'external_draw_ref',
-
-    // AGREGA ESTOS:
     'bg_color',
     'bg_image_path',
+    'is_edit_locked',
+    'quick_selections',
 ];
 
 
@@ -40,7 +39,9 @@ class Rifa extends Model
         'precio'     => 'decimal:2',
         'starts_at'  => 'datetime',
         'ends_at'    => 'datetime',
-        'draw_at'    => 'datetime', // NUEVO
+        'draw_at'    => 'datetime',
+        'is_edit_locked' => 'boolean',
+        'quick_selections' => 'array',
     ];
 
     public function tenant(): BelongsTo

@@ -6,6 +6,7 @@
   $primary = '#2563eb';
 
   // Variables
+  $rifa      = $order->rifa;  // 🔴 AGREGAR ESTA LÍNEA
   $tickets   = $order->items?->pluck('numero')->sort();
   $total     = number_format((float)($order->total_amount ?? 0), 2, '.', ',');
   $voucher   = $order->voucher_path ?? null;
@@ -25,7 +26,7 @@
     Un usuario envió comprobante de pago
   </h2>
   <div class="p muted" style="font-size:14px;">
-    El usuario <b>{{ $customerName ?? $order->customer_name ?? '-' }}</b> envió un pago que requiere verificación.<br>
+    El usuario <b>{{ $order->customer_name ?? '-' }}</b> envió un pago que requiere verificación.<br>
     Por favor, revisa y aprueba o rechaza la orden en el sistema.
   </div>
 </div>
@@ -42,7 +43,7 @@
         <tr>
           <td style="padding:6px 0;">Cliente:</td>
           <td style="padding:6px 0;font-weight:700;">
-            {{ $customerName ?? $order->customer_name ?? '-' }}<br>
+            {{ $order->customer_name ?? '-' }}<br>
             <span class="small" style="color:#64748b;">
               Email: {{ $order->customer_email ?? '-' }}<br>
               Teléfono: {{ $order->customer_phone ?? '-' }}

@@ -33,7 +33,7 @@ class PublicContractController extends Controller
     $request->validate([
         'client_address'       => 'required|string|max:255',
         'raffle_name'          => 'required|string|max:255',
-        'cedula_file'          => 'required|file|mimes:jpg,jpeg,png,pdf|max:2048',
+        'cedula_file'          => 'required|file|mimes:jpg,jpeg,png,pdf|max:4096',
         'conalot_permit_file'  => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:4096',
         'accept_disclaimer'    => 'required',
         'signature_image'      => 'required|string', // base64 PNG del canvas

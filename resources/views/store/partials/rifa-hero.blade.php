@@ -60,10 +60,23 @@
         </div>
       </div>
 
-      {{-- Descripción --}}
+      {{-- Descripción, si existe --}}
       @if($rifa->descripcion)
-        <p class="mt-2 text-base text-[#222] opacity-90 whitespace-pre-line">{{ $rifa->descripcion }}</p>
+        <p class="mt-2 text-base text-[#222] opacity-90 whitespace-pre-line text-center max-w-2xl mx-auto">
+          {{ $rifa->descripcion }}
+        </p>
       @endif
+
+     {{-- Divider suave --}}
+<div class="w-full flex justify-center my-2">
+  <span class="block w-10 h-1 rounded-full bg-[var(--primary)]/15"></span>
+</div>
+
+{{-- TEXTO MOTIVADOR SIEMPRE, DEBAJO DEL BANNER/DESCRIPCIÓN --}}
+<div class="mt-4 mb-1 text-2xl md:text-2xl text-[var(--primary)] font-extrabold text-center max-w-2xl mx-auto tracking-wide drop-shadow-sm">
+   ¡Compra tu ticket y participa!
+</div>
+
 
       {{-- Precio y min/max --}}
       <div class="flex flex-wrap gap-3 mt-2">
@@ -115,37 +128,8 @@
           minutes: 240,
           pageSize: 200
       };
-      
       </script>
 
-      {{-- CTA --}}
-      <div class="mt-8 flex justify-center w-full">
-        <button
-          id="btnBuyNow"
-          type="button"
-          onclick="
-const sheet = document.getElementById('numbersSheet');
-const backdrop = document.getElementById('numbersBackdrop');
-const panel = document.getElementById('numbersPanel');
-if (sheet && backdrop && panel) {
-  sheet.classList.remove('hidden');
-  requestAnimationFrame(() => {
-    backdrop.style.opacity = '1';
-    panel.style.transform = 'translateX(-50%) translateY(0)';
-    panel.setAttribute('aria-hidden', 'false');
-  });
-}
-"
-          class="relative text-lg md:text-xl font-extrabold px-10 py-4 rounded-2xl shadow transition-all duration-300
-                 bg-gradient-to-br from-[var(--primary)] to-[#0030b5]
-                 hover:from-[#a21b24] hover:to-[#233e92]
-                 focus:outline-none focus:ring-4 focus:ring-[var(--primary)]/30
-                 uppercase tracking-widest"
-        >
-          Comprar boletos
-          <span class="absolute -right-3 -top-3 bg-white rounded-full shadow text-red-600 font-black px-2 py-1 text-xs border-2 border-red-400 animate-bounce">¡Participa!</span>
-        </button>
-      </div>
 
     </div>
   </div>

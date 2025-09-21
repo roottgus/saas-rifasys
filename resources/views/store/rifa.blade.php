@@ -24,14 +24,15 @@
 
     $minSel = (int) ($rifa->min_por_compra ?? 1);
     $maxSel = (int) ($rifa->max_por_compra ?? 9999);
-    $price  = (float) ($rifa->precio ?? 0);
+$price  = (float) ($rifa->precio ?? 0);
 
-    // URL del endpoint de reserva — usa slug de la rifa explícitamente
-    $reserveUrl = $tenantParam
-        ? route('store.reserve', ['tenant' => $tenantParam, 'rifa' => $rifa->slug ?? $rifa])
-        : null;
+// URL del endpoint de reserva — usa slug de la rifa explícitamente
+$reserveUrl = $tenantParam
+    ? route('store.reserve', ['tenant' => $tenantParam, 'rifa' => $rifa->slug])
+    : null;
 
-    $minutes = (int) ($rifa->reserva_minutos ?? 240);
+$minutes = (int) ($rifa->reserva_minutos ?? 240);
+
 
     $nums    = $rifa->numeros()->orderBy('numero')->get(['numero','estado']);
     $premios = $rifa->specialPrizes()
@@ -88,13 +89,9 @@
     @include('store.partials.rifa-hero',     compact('rifa','percent','paid','available','minSel','maxSel','price','premios'))
     @include('store.partials.rifa-stats',    compact('total','percent'))
 
-    @include('store.partials.rifa-checkout', [
-    'order' => $order ?? null,
-    'tenant' => $tenantView,
-    'paymentAccounts' => $paymentAccounts,
-    'tasaBs' => $tasaBs ?? null,
-    'tSlug' => $tenantSlug,
-])
+    @include('store.partials.rifa-landipage-checkout', compact('rifa','minSel','maxSel','nums', 'reserveUrl'))
+
+
     
   </div>
 </div>

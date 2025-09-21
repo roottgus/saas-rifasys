@@ -5,6 +5,7 @@ namespace App\Filament\Tenant\Widgets;
 use Filament\Widgets\Widget;
 use Illuminate\Support\Facades\Auth;
 use Filament\Facades\Filament;
+use Illuminate\Support\Carbon;
 
 class WelcomeWidget extends Widget
 {
@@ -23,19 +24,45 @@ class WelcomeWidget extends Widget
         $tenantName = $tenant->name ?? 'Mi Negocio';
         $tenantSlug = $tenant->slug ?? null;
         $plan       = $tenant->plan ?? 'Básico';
-        $lastLogin  = $user->last_login_at?->diffForHumans() ?? 'Primera vez';
-        $daysActive = $tenant->created_at?->diffInDays(now()) ?? 0;
-        $tips       = $this->getAllTips(); // <-- Pasamos todos los tips
+
+        // --- Fix seguro para el error de diffForHumans en string/null:
+        $lastLogin = $user->last_login_at
+            ? Carbon::parse($user->last_login_at)->diffForHumans()
+            : 'Primera vez';
+
+        $daysActive = $tenant->created_at
+            ? Carbon::parse($tenant->created_at)->diffInDays(now())
+            : 0;
+
+        $tips = $this->getAllTips();
+
+        // --- Lógica para limitar el botón de Nueva Rifa ---
+        $rifasActuales = $tenant->rifas()->count();
+
+        // Prioridad: max_rifas > plan
+        $limiteRifas = $tenant->max_rifas ?? (
+            match($tenant->plan) {
+                'plus'    => 1,
+                'master'  => 2,
+                'premium' => null, // Ilimitadas
+                default   => 1,
+            }
+        );
+
+        // Si no hay límite, siempre puede crear; si hay, verifica el límite
+        $puedeCrearRifa = is_null($limiteRifas) || $rifasActuales < $limiteRifas;
 
         return [
-            'greeting'    => $greeting,
-            'userName'    => $userName,
-            'tenantName'  => $tenantName,
-            'tenantSlug'  => $tenantSlug,
-            'plan'        => $plan,
-            'lastLogin'   => $lastLogin,
-            'daysActive'  => $daysActive,
-            'tips'        => $tips, // <-- Para JS dinámico en la vista
+            'greeting'       => $greeting,
+            'userName'       => $userName,
+            'tenantName'     => $tenantName,
+            'tenantSlug'     => $tenantSlug,
+            'plan'           => $plan,
+            'lastLogin'      => $lastLogin,
+            'daysActive'     => $daysActive,
+            'tips'           => $tips,
+            'puedeCrearRifa' => $puedeCrearRifa, // <= Nuevo para Blade
+            'limiteRifas'    => $limiteRifas,    // <= Puedes usarlo si quieres mostrar un mensaje
         ];
     }
 

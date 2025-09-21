@@ -67,6 +67,8 @@ class ExpirarReservas extends Command
                     ->update([
                         'estado'          => NumeroEstado::Disponible,
                         'reservado_hasta' => null,
+                        'session_id'      => null,
+                        'client_info'     => null,
                     ]);
             }
         });

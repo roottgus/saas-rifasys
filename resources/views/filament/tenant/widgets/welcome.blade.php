@@ -4,13 +4,20 @@
             <!-- Botones flotantes en la esquina superior derecha -->
             <div style="position: absolute; top: 10px; right: 20px; z-index: 20;" class="hidden lg:flex gap-3">
                 @if($tenantSlug)
-                    <a href="{{ url('/panel/' . $tenantSlug . '/raffles/create') }}"
-                        style="display: inline-flex !important; background: rgba(255, 255, 255, 0.9) !important; color: rgb(37, 99, 235) !important; padding: 8px 20px !important; border-radius: 8px !important; font-weight: 600 !important; text-decoration: none !important; align-items: center !important; gap: 8px !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;"
-                        onmouseover="this.style.background='rgba(255, 255, 255, 1)'"
-                        onmouseout="this.style.background='rgba(255, 255, 255, 0.9)'">
-                        <x-heroicon-o-plus-circle class="w-5 h-5" />
-                        <span>Nueva Rifa</span>
-                    </a>
+                    @if($puedeCrearRifa)
+                        <a href="{{ url('/panel/' . $tenantSlug . '/rifas/create') }}"
+                            style="display: inline-flex !important; background: rgba(255, 255, 255, 0.9) !important; color: rgb(37, 99, 235) !important; padding: 8px 20px !important; border-radius: 8px !important; font-weight: 600 !important; text-decoration: none !important; align-items: center !important; gap: 8px !important; box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;"
+                            onmouseover="this.style.background='rgba(255, 255, 255, 1)'"
+                            onmouseout="this.style.background='rgba(255, 255, 255, 0.9)'">
+                            <x-heroicon-o-plus-circle class="w-5 h-5" />
+                            <span>Nueva Rifa</span>
+                        </a>
+                    @else
+                        <span class="flex items-center gap-2 px-5 py-2 rounded-lg font-semibold bg-white/90 text-red-600 border border-red-300 shadow">
+                            <x-heroicon-o-x-circle class="w-5 h-5 text-red-500" />
+                            Ya alcanzaste el límite de rifas de tu plan.
+                        </span>
+                    @endif
                     <a href="{{ url('/panel/' . $tenantSlug . '/reports') }}"
                         style="display: inline-flex !important; background: rgba(255, 255, 255, 0.15) !important; color: white !important; border: 1px solid rgba(255, 255, 255, 0.3) !important; padding: 8px 20px !important; border-radius: 8px !important; font-weight: 600 !important; text-decoration: none !important; align-items: center !important; gap: 8px !important;"
                         onmouseover="this.style.background='rgba(255, 255, 255, 0.25)'"
@@ -45,14 +52,34 @@
                         Bienvenido al panel de control de <strong>{{ $tenantName }}</strong>
                     </p>
                     <div class="flex flex-wrap gap-6 text-sm text-white/80">
+
+                        <!-- Último acceso: “hace 2 minutos”, etc -->
                         <div class="flex items-center gap-2">
                             <x-heroicon-o-clock class="w-4 h-4" />
-                            <span>Último acceso: {{ $lastLogin }}</span>
+                            <span>
+                                Último acceso: <strong class="text-white">{{ $lastLogin }}</strong>
+                            </span>
                         </div>
+
+                        <!-- Plan del tenant, bonito y en rojo -->
+                        @php
+                            $planLabels = [
+                                'plus'    => 'Plus (1 rifa)',
+                                'master'  => 'Master (2 rifas)',
+                                'premium' => 'Premium (ilimitadas)',
+                            ];
+                            $planText = $planLabels[$plan] ?? 'No asignado';
+                        @endphp
+
                         <div class="flex items-center gap-2">
                             <x-heroicon-o-sparkles class="w-4 h-4" />
-                            <span>Plan: <strong class="text-white">{{ $plan }}</strong></span>
+                            <span>
+                                Plan:
+                                <strong class="text-red-600">{{ $planText }}</strong>
+                            </span>
                         </div>
+
+                        <!-- Días activo -->
                         <div class="flex items-center gap-2">
                             <x-heroicon-o-calendar-days class="w-4 h-4" />
                             <span>{{ $daysActive }} días activo</span>

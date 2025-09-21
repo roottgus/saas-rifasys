@@ -2,242 +2,661 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Contrato de Servicio Rifasys — {{ $contract->contract_number }}</title>
+    <title>Contrato de Servicio Rifasys – {{ $contract->contract_number }}</title>
     <style>
-        /* ======== REGLAS 100% COMPATIBLES DOMPDF ======== */
-        @page { margin: 110px 36px 80px 36px; } /* top right bottom left */
+        /* ======== CONFIGURACIÓN DE PÁGINA PROFESIONAL ======== */
+        @page { 
+            margin: 120px 50px 100px 50px;
+            size: letter;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
         body {
-            font-family: DejaVu Sans, sans-serif; /* DejaVu trae latín completo */
-            font-size: 12px;
-            color: #1f2937; /* slate-800 */
-            line-height: 1.45;
+            font-family: 'DejaVu Sans', Arial, sans-serif;
+            font-size: 11px;
+            color: #2c3e50;
+            line-height: 1.6;
+            background: white;
         }
 
-        /* Header / Footer usando posiciones fijas (Dompdf sí soporta) */
+        /* ======== HEADER PROFESIONAL FIJO ======== */
         .header {
             position: fixed;
-            top: -90px;
-            left: 0; right: 0;
-            height: 90px;
-            border-bottom: 2px solid #0ea5a3; /* teal */
+            top: -100px;
+            left: -50px;
+            right: -50px;
+            height: 100px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            border-bottom: 3px solid #0ea5a3;
+            padding: 0 50px;
         }
+
+        .header-content {
+            width: 100%;
+            height: 100%;
+        }
+
+        .header-logo {
+            height: 45px;
+            width: auto;
+            display: block;
+        }
+
+        .header-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #0f3a71;
+            letter-spacing: 0.5px;
+            margin: 0;
+            text-transform: uppercase;
+        }
+
+        .header-subtitle {
+            font-size: 10px;
+            color: #64748b;
+            margin-top: 3px;
+            letter-spacing: 0.3px;
+        }
+
+        .contract-number {
+            background: #0ea5a3;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 15px;
+            font-weight: bold;
+            font-size: 10px;
+            display: inline-block;
+            margin-top: 5px;
+        }
+
+        /* ======== FOOTER PROFESIONAL FIJO ======== */
         .footer {
             position: fixed;
-            bottom: -60px;
-            left: 0; right: 0;
-            height: 60px;
-            border-top: 1px solid #cbd5e1;
+            bottom: -80px;
+            left: -50px;
+            right: -50px;
+            height: 70px;
+            background: #f8f9fa;
+            border-top: 2px solid #e2e8f0;
+            padding: 15px 50px;
+        }
+
+        .footer-content {
+            width: 100%;
+        }
+
+        .footer-left {
+            font-size: 9px;
+            color: #64748b;
+            line-height: 1.4;
+        }
+
+        .footer-company {
+            font-weight: bold;
             color: #475569;
+            font-size: 10px;
+        }
+
+        .footer-right {
+            text-align: right;
+            font-size: 10px;
+            color: #475569;
+        }
+
+        .page-number {
+            background: #e2e8f0;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: bold;
+        }
+
+        /* ======== CONTENIDO PRINCIPAL ======== */
+        main {
+            margin-top: 10px;
+        }
+
+        /* ======== CAJA DE VERIFICACIÓN PROFESIONAL ======== */
+        .verification-box {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            border: 2px solid #0ea5a3;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+            position: relative;
+            page-break-inside: avoid;
+        }
+
+        .verification-header {
+            font-size: 12px;
+            font-weight: bold;
+            color: #0f3a71;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 12px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #bae6fd;
+        }
+
+        .verification-content {
+            width: 100%;
+        }
+
+        .verification-item {
             font-size: 11px;
+            color: #334155;
+            margin-bottom: 6px;
         }
 
-        /* Tablas generales */
-        table { border-collapse: collapse; }
-        .w-full { width: 100%; }
-        .align-middle td, .align-middle th { vertical-align: middle; }
-
-        .title { font-size: 16px; font-weight: bold; color: #0f3a71; }
-        .subtitle { font-size: 12px; color: #475569; }
-        .badge {
+        .verification-label {
+            font-weight: bold;
+            color: #0f3a71;
             display: inline-block;
-            background: #0ea5a3; color: #fff;
-            padding: 2px 7px; border-radius: 10px; font-weight: bold; font-size: 11px;
-        }
-        .section-title { font-size: 13px; font-weight: bold; color: #0f3a71; margin: 14px 0 6px; }
-        .clause { text-align: justify; margin: 4px 0; }
-
-        /* Tabla de datos del cliente */
-        .data { width: 100%; margin: 8px 0 12px 0; }
-        .data th {
-            width: 26%; text-align: left; font-size: 12px; color: #0f3a71;
-            background: #f1f5f9; border-bottom: 1px solid #e2e8f0; padding: 6px 10px;
-        }
-        .data td {
-            font-size: 12px; border-bottom: 1px solid #eef2f7; padding: 6px 10px;
+            min-width: 100px;
         }
 
-        /* Bloque de verificación (sin flex, solo tabla) */
-        .verify {
-            width: 100%; border: 1px solid #bae6fd; background: #f0f9ff; border-radius: 8px;
-            -webkit-border-radius: 8px; /* Dompdf */
-            margin: 10px 0 14px 0;
+        .verification-value {
+            color: #1e293b;
         }
-        .verify td { padding: 8px 10px; }
-        .verify .kv { font-size: 12px; color: #334155; }
-        .verify .kv b { color: #0f3a71; }
-        .qr-box { text-align: right; }
-        .qr-border { border: 1px solid #e2e8f0; padding: 3px; display: inline-block; }
 
-        /* Firmas (tabla con 2 columnas) */
-        .sign-table { width: 100%; margin-top: 16px; table-layout: fixed; }
-        .sign-cell { width: 50%; text-align: center; }
-        .sign-box {
-            height: 90px; border-bottom: 1px solid #cbd5e1; margin: 0 auto 6px auto;
-            width: 85%; /* asegura ancho consistente */
+        .status-badge {
+            display: inline-block;
+            background: #10b981;
+            color: white;
+            padding: 3px 12px;
+            border-radius: 12px;
+            font-weight: bold;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
-        .sign-img { max-height: 90px; max-width: 100%; }
-        .sign-label { font-size: 11px; color: #64748b; }
-        .sign-name { font-size: 12px; font-weight: bold; margin-top: 4px; }
-        .sign-date { font-size: 11px; color: #6b7280; margin-top: 2px; }
 
-        .muted { color: #6b7280; }
-        .small { font-size: 11px; }
-        .xs { font-size: 10px; }
+        .status-pending {
+            background: #f59e0b;
+        }
 
-        /* Evitar cortes bruscos en bloques críticos */
+        .qr-container {
+            text-align: center;
+            padding: 10px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #cbd5e1;
+        }
+
+        .qr-image {
+            width: 80px;
+            height: 80px;
+        }
+
+        .qr-text {
+            font-size: 9px;
+            color: #64748b;
+            margin-top: 5px;
+        }
+
+        /* ======== TABLA DE DATOS PROFESIONAL ======== */
+        .client-data-section {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 25px;
+            page-break-inside: avoid;
+        }
+
+        .section-header {
+            background: linear-gradient(135deg, #0f3a71 0%, #1e5a8e 100%);
+            color: white;
+            padding: 10px 20px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .data-table tr {
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .data-table tr:last-child {
+            border-bottom: none;
+        }
+
+        .data-table th {
+            background: #f8f9fa;
+            color: #0f3a71;
+            font-size: 10px;
+            font-weight: bold;
+            text-align: left;
+            padding: 12px 20px;
+            width: 30%;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .data-table td {
+            padding: 12px 20px;
+            font-size: 11px;
+            color: #1e293b;
+        }
+
+        /* ======== CLÁUSULAS PROFESIONALES ======== */
+        .clauses-section {
+            margin-top: 30px;
+        }
+
+        .clause-container {
+            margin-bottom: 20px;
+            page-break-inside: avoid;
+        }
+
+        .clause-title {
+            background: linear-gradient(90deg, #0f3a71 0%, transparent 100%);
+            color: white;
+            padding: 8px 15px;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+            border-radius: 5px 0 0 5px;
+        }
+
+        .clause-content {
+            padding: 0 15px;
+            text-align: justify;
+            font-size: 11px;
+            line-height: 1.7;
+            color: #374151;
+        }
+
+        .clause-content b {
+            color: #0f3a71;
+            font-weight: bold;
+        }
+
+        .important-text {
+            background: #fef3c7;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+
+        /* ======== SECCIÓN DE FIRMAS PROFESIONAL ======== */
+        .signatures-section {
+            margin-top: 40px;
+            page-break-inside: avoid;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 25px;
+        }
+
+        .signatures-title {
+            text-align: center;
+            font-size: 13px;
+            font-weight: bold;
+            color: #0f3a71;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 25px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #cbd5e1;
+        }
+
+        .signatures-table {
+            width: 100%;
+            table-layout: fixed;
+        }
+
+        .signature-cell {
+            width: 50%;
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        .signature-box {
+            background: white;
+            border: 2px solid #cbd5e1;
+            border-radius: 8px;
+            padding: 15px;
+            min-height: 120px;
+            margin-bottom: 15px;
+            position: relative;
+        }
+
+        .signature-label {
+            font-size: 10px;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .signature-image {
+            max-height: 70px;
+            max-width: 90%;
+            margin: 10px auto;
+        }
+
+        .signature-line {
+            border-bottom: 2px solid #cbd5e1;
+            width: 80%;
+            margin: 50px auto 10px;
+        }
+
+        .signature-name {
+            font-size: 12px;
+            font-weight: bold;
+            color: #0f3a71;
+            margin-top: 10px;
+        }
+
+        .signature-id {
+            font-size: 10px;
+            color: #64748b;
+            margin-top: 3px;
+        }
+
+        .signature-date {
+            font-size: 10px;
+            color: #475569;
+            margin-top: 5px;
+            background: #e2e8f0;
+            padding: 3px 10px;
+            border-radius: 5px;
+            display: inline-block;
+        }
+
+        /* ======== UTILIDADES ======== */
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .text-justify { text-align: justify; }
+        .w-full { width: 100%; }
         .avoid-break { page-break-inside: avoid; }
+        
+        /* ======== WATERMARK (OPCIONAL) ======== */
+        .watermark {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-45deg);
+            font-size: 100px;
+            color: rgba(14, 165, 163, 0.05);
+            font-weight: bold;
+            text-transform: uppercase;
+            z-index: -1;
+        }
     </style>
 </head>
 <body>
+    <!-- MARCA DE AGUA OPCIONAL -->
+    <div class="watermark">Publienred</div>
 
-    {{-- HEADER --}}
+    <!-- HEADER PROFESIONAL -->
     <div class="header">
-        <table class="w-full align-middle" style="margin-top:10px;">
+        <table class="header-content">
             <tr>
-                <td style="width: 33%; text-align:left;">
-                    <img src="{{ public_path('img/logo-publienred.png') }}" alt="Publienred" style="height:56px;">
+                <td style="width: 25%; vertical-align: middle;">
+                    <img src="{{ public_path('img/logo-publienred.png') }}" alt="Publienred" class="header-logo">
                 </td>
-                <td style="width: 34%; text-align:center;">
-                    <div class="title">CONTRATO DE SERVICIO (SaaS)</div>
-                    <div class="subtitle">Plataforma Rifasys · Contrato N° <b>{{ $contract->contract_number }}</b></div>
+                <td style="width: 50%; text-align: center; vertical-align: middle;">
+                    <div class="header-title">Contrato de Servicio</div>
+                    <div class="header-subtitle">Software as a Service (SaaS) - Plataforma Rifasys</div>
+                    <span class="contract-number">CONTRATO N° {{ $contract->contract_number }}</span>
                 </td>
-                <td style="width: 33%; text-align:right;">
-                    <img src="{{ public_path('img/logo-rifasys.png') }}" alt="Rifasys" style="height:48px;">
+                <td style="width: 25%; text-align: right; vertical-align: middle;">
+                    <img src="{{ public_path('img/logo-rifasys.png') }}" alt="Rifasys" class="header-logo">
                 </td>
             </tr>
         </table>
     </div>
 
-    {{-- FOOTER --}}
+    <!-- FOOTER PROFESIONAL -->
     <div class="footer">
-        <table class="w-full" style="margin-top:8px;">
+        <table class="footer-content">
             <tr>
-                <td style="text-align:left;">
-                    <div class="small">Publicidad en Red C.A. &middot; Rifasys &copy; {{ now()->year }}</div>
-                    <div class="xs muted">Documento generado automáticamente. Soporte: admin@publienred.com</div>
+                <td style="width: 70%; vertical-align: middle;">
+                    <div class="footer-company">Publicidad en Red C.A.</div>
+                    <div class="footer-left">
+                        RIF: J-29761832-5 · Merida, Venezuela<br>
+                        Documento generado electrónicamente · Soporte: admin@publienred.com
+                    </div>
                 </td>
-                <td style="text-align:right;" class="small">
-                    Página <span class="pagenum">{PAGE_NUM} / {PAGE_COUNT}</span>
+                <td style="width: 30%; vertical-align: middle;" class="footer-right">
+                    <span class="page-number">Página {PAGE_NUM} de {PAGE_COUNT}</span>
                 </td>
             </tr>
         </table>
     </div>
 
-    {{-- CONTENIDO --}}
+    <!-- CONTENIDO PRINCIPAL -->
     <main>
-
-        {{-- VERIFICACIÓN / FOLIO --}}
-        <table class="verify avoid-break">
-            <tr>
-                <td>
-                    <div class="kv"><b>Folio / UUID:</b> {{ $contract->uuid }}</div>
-                    <div class="kv"><b>Emitido:</b> {{ $contract->created_at->format('d/m/Y H:i') }}</div>
-                    <div class="kv">
-                        <b>Estado:</b>
-                        @if ($contract->status === 'signed')
-                            <span class="badge">FIRMADO</span>
-                        @else
-                            <span class="muted">Pendiente de firma</span>
-                        @endif
-                    </div>
-                </td>
-                <td class="qr-box" style="width:120px;">
-                    @php
-                        // $qrPath = public_path('storage/qrcodes/'.$contract->uuid.'.png');
-                    @endphp
-                    @if (!empty($qrPath) && file_exists($qrPath))
-                        <span class="qr-border">
-                            <img src="{{ $qrPath }}" alt="QR" style="height:95px;width:95px;">
-                        </span>
-                        <div class="xs muted" style="margin-top:4px;">Verifique escaneando</div>
-                    @else
-                        <div class="xs muted">(QR opcional)</div>
-                    @endif
-                </td>
-            </tr>
-        </table>
-
-        {{-- DATOS DEL CLIENTE --}}
-        <table class="data avoid-break">
-            <tr><th>Cliente</th><td>{{ $contract->client_name }} (C.I.: {{ $contract->client_id_number }})</td></tr>
-            <tr><th>Rifa</th><td>{{ $contract->raffle_name }}</td></tr>
-            <tr><th>Email</th><td>{{ $contract->client_email }}</td></tr>
-            <tr><th>Teléfono</th><td>{{ $contract->client_phone }}</td></tr>
-            <tr><th>Dirección</th><td>{{ $contract->client_address }}</td></tr>
-            <tr><th>Fecha de emisión</th><td>{{ $contract->created_at->format('d/m/Y H:i') }}</td></tr>
-        </table>
-
-        {{-- CLÁUSULAS --}}
-        <div class="section-title">1. Precio, alcance y vigencia</div>
-        <div class="clause">
-            El precio del servicio es de <b>USD 150 (ciento cincuenta dólares estadounidenses)</b> por cada rifa creada en la
-            plataforma Rifasys. Incluye configuración técnica, soporte y la gestión de un dominio exclusivo para la rifa
-            especificada en este contrato.
-        </div>
-        <div class="clause">
-            Finalizada la rifa, el sistema bloqueará la venta de boletos. Para ejecutar nuevas rifas se requiere la
-            suscripción de un nuevo contrato y su correspondiente firma/aceptación.
+        <!-- CAJA DE VERIFICACIÓN -->
+        <div class="verification-box">
+            <div class="verification-header">⬢ Información de Verificación Digital</div>
+            <table class="verification-content">
+                <tr>
+                    <td style="width: 70%;">
+                        <div class="verification-item">
+                            <span class="verification-label">UUID / Folio:</span>
+                            <span class="verification-value">{{ $contract->uuid }}</span>
+                        </div>
+                        <div class="verification-item">
+                            <span class="verification-label">Fecha Emisión:</span>
+                            <span class="verification-value">{{ $contract->created_at->format('d/m/Y H:i:s') }}</span>
+                        </div>
+                        <div class="verification-item">
+                            <span class="verification-label">Estado:</span>
+                            @if ($contract->status === 'signed')
+                                <span class="status-badge">✓ FIRMADO DIGITALMENTE</span>
+                            @else
+                                <span class="status-badge status-pending">⏳ PENDIENTE DE FIRMA</span>
+                            @endif
+                        </div>
+                        <div class="verification-item">
+                            <span class="verification-label">Hash SHA-256:</span>
+                            <span class="verification-value" style="font-size: 9px;">{{ substr(hash('sha256', $contract->uuid), 0, 32) }}...</span>
+                        </div>
+                    </td>
+                    <td style="width: 30%; text-align: right;">
+                        <div class="qr-container">
+                            @php
+                                $qrPath = null; // public_path('storage/qrcodes/'.$contract->uuid.'.png');
+                            @endphp
+                            @if (!empty($qrPath) && file_exists($qrPath))
+                                <img src="{{ $qrPath }}" alt="QR" class="qr-image">
+                                <div class="qr-text">Verificar documento</div>
+                            @else
+                                <div style="width: 80px; height: 80px; background: #f3f4f6; border: 2px dashed #cbd5e1; border-radius: 8px; margin: 0 auto; display: table;">
+                                    <div style="display: table-cell; vertical-align: middle; text-align: center;">
+                                        <div style="font-size: 24px; color: #cbd5e1;">QR</div>
+                                    </div>
+                                </div>
+                                <div class="qr-text">Código QR</div>
+                            @endif
+                        </div>
+                    </td>
+                </tr>
+            </table>
         </div>
 
-        <div class="section-title">2. Responsabilidad legal (CONALOT)</div>
-        <div class="clause">
-            El cliente es el único responsable de la obtención y vigencia de permisos/licencias ante la
-            <b>Comisión Nacional de Lotería (CONALOT)</b> y cualquier ente regulador aplicable. Publienred C.A. / Rifasys
-            provee exclusivamente el software y <b>no asume responsabilidad</b> por el uso del sistema sin dichos permisos.
+        <!-- DATOS DEL CLIENTE -->
+        <div class="client-data-section">
+            <div class="section-header">⬢ Información del Cliente y Servicio</div>
+            <table class="data-table">
+                <tr>
+                    <th>Razón Social / Nombre</th>
+                    <td><strong>{{ $contract->client_name }}</strong></td>
+                </tr>
+                <tr>
+                    <th>Documento de Identidad</th>
+                    <td>C.I. / RIF: {{ $contract->client_id_number }}</td>
+                </tr>
+                <tr>
+                    <th>Correo Electrónico</th>
+                    <td>{{ $contract->client_email }}</td>
+                </tr>
+                <tr>
+                    <th>Teléfono de Contacto</th>
+                    <td>{{ $contract->client_phone }}</td>
+                </tr>
+                <tr>
+                    <th>Dirección Fiscal</th>
+                    <td>{{ $contract->client_address }}</td>
+                </tr>
+                <tr>
+                    <th>Rifa / Sorteo</th>
+                    <td><strong>{{ $contract->raffle_name }}</strong></td>
+                </tr>
+                <tr>
+                    <th>Fecha de Contratación</th>
+                    <td>{{ $contract->created_at->format('d \\d\\e F \\d\\e\\l Y') }}</td>
+                </tr>
+            </table>
         </div>
 
-        <div class="section-title">3. Determinación del ganador</div>
-        <div class="clause">
-            Rifasys no determina ni manipula ganadores; estos se eligen exclusivamente según los resultados oficiales de la
-            lotería seleccionada por el cliente.
+        <!-- CLÁUSULAS DEL CONTRATO -->
+        <div class="clauses-section">
+            <div class="clause-container">
+                <div class="clause-title">Cláusula Primera: Objeto del Contrato</div>
+                <div class="clause-content">
+                    Publicidad en Red C.A. (en adelante "LA EMPRESA") otorga al CLIENTE una licencia de uso del software 
+                    Rifasys bajo modalidad SaaS (Software as a Service) para la gestión, administración y operación de la 
+                    rifa especificada en este contrato. El servicio incluye hosting, mantenimiento, soporte técnico y 
+                    actualizaciones durante la vigencia del contrato.
+                </div>
+            </div>
+
+            <div class="clause-container">
+                <div class="clause-title">Cláusula Segunda: Precio y Condiciones de Pago</div>
+                <div class="clause-content">
+                    El valor total del servicio es de <b>USD 150,00 (CIENTO CINCUENTA DÓLARES ESTADOUNIDENSES)</b> por cada 
+                    rifa creada en la plataforma. Este monto incluye: configuración inicial del sistema, personalización con 
+                    dominio exclusivo, soporte técnico durante la vigencia de la rifa, almacenamiento seguro de datos y 
+                    certificación digital de resultados. El pago debe realizarse en su totalidad previo a la activación del servicio.
+                </div>
+            </div>
+
+            <div class="clause-container">
+                <div class="clause-title">Cláusula Tercera: Responsabilidades Legales y Regulatorias</div>
+                <div class="clause-content">
+                    El CLIENTE declara conocer y acepta que es el <span class="important-text">único responsable</span> de obtener, 
+                    mantener vigente y cumplir con todos los permisos, licencias y autorizaciones requeridas por la 
+                    <b>Comisión Nacional de Lotería (CONALOT)</b> y cualquier otro organismo regulador competente. LA EMPRESA 
+                    actúa exclusivamente como proveedor de tecnología y <b>no asume ninguna responsabilidad legal, administrativa, 
+                    civil o penal</b> derivada del uso del sistema sin los permisos correspondientes o del incumplimiento de 
+                    normativas aplicables.
+                </div>
+            </div>
+
+            <div class="clause-container">
+                <div class="clause-title">Cláusula Cuarta: Transparencia y Determinación de Ganadores</div>
+                <div class="clause-content">
+                    Rifasys opera con total transparencia. El sistema <b>no determina, manipula ni influye</b> en la selección 
+                    de ganadores. Los resultados se basan exclusivamente en los sorteos oficiales de las loterías nacionales 
+                    o internacionales seleccionadas por el CLIENTE. LA EMPRESA garantiza la integridad del proceso mediante 
+                    registros auditables y trazabilidad completa de todas las operaciones.
+                </div>
+            </div>
+
+            <div class="clause-container">
+                <div class="clause-title">Cláusula Quinta: Documentación y Cumplimiento</div>
+                <div class="clause-content">
+                    El CLIENTE debe proporcionar: (i) Copia legible de su documento de identidad, (ii) Permiso CONALOT vigente 
+                    (cuando aplique), (iii) Documentación fiscal requerida. La ausencia del permiso CONALOT no impide la 
+                    prestación del servicio, pero el CLIENTE asume toda responsabilidad legal y exonera completamente a 
+                    LA EMPRESA de cualquier consecuencia derivada de operar sin dicha autorización.
+                </div>
+            </div>
+
+            <div class="clause-container">
+                <div class="clause-title">Cláusula Sexta: Vigencia y Terminación</div>
+                <div class="clause-content">
+                    Este contrato entra en vigor desde su firma digital o aceptación electrónica y permanece activo hasta la 
+                    conclusión de la rifa especificada. Una vez finalizada, el sistema bloqueará automáticamente la venta de 
+                    boletos. Para realizar nuevas rifas, se requiere la suscripción de un nuevo contrato. LA EMPRESA se 
+                    reserva el derecho de suspender o terminar el servicio ante incumplimientos contractuales o uso indebido.
+                </div>
+            </div>
+
+            <div class="clause-container">
+                <div class="clause-title">Cláusula Séptima: Protección de Datos</div>
+                <div class="clause-content">
+                    LA EMPRESA garantiza el tratamiento confidencial de todos los datos del CLIENTE y sus usuarios finales, 
+                    cumpliendo con las normativas vigentes de protección de datos. La información será utilizada exclusivamente 
+                    para la prestación del servicio contratado y no será compartida con terceros sin autorización expresa.
+                </div>
+            </div>
         </div>
 
-        <div class="section-title">4. Documentación obligatoria</div>
-        <div class="clause">
-            El cliente declara haber entregado copia de su cédula y, de disponer, el permiso CONALOT. Si no anexa dicho
-            permiso, asume total responsabilidad legal por la realización de rifas y exonera a Publienred C.A. de cualquier
-            reclamo o consecuencia derivada.
+        <!-- SECCIÓN DE FIRMAS -->
+        <div class="signatures-section">
+            <div class="signatures-title">Firmas y Aceptación del Contrato</div>
+            
+            <table class="signatures-table">
+                <tr>
+                    <td class="signature-cell">
+                        <div class="signature-label">Por la Empresa Proveedora</div>
+                        <div class="signature-box">
+                            @php 
+                                $selloPath = public_path('img/sello-empresa.png'); 
+                            @endphp
+                            @if(file_exists($selloPath))
+                                <img src="{{ $selloPath }}" class="signature-image" alt="Sello">
+                            @else
+                                <div class="signature-line"></div>
+                            @endif
+                        </div>
+                        <div class="signature-name">Publicidad en Red C.A.</div>
+                        <div class="signature-id">RIF: J-XXXXXXXXX-X</div>
+                        <div class="signature-date">
+                            Fecha: {{ $contract->signed_at ? $contract->signed_at->format('d/m/Y') : now()->format('d/m/Y') }}
+                        </div>
+                    </td>
+                    
+                    <td class="signature-cell">
+                        <div class="signature-label">Por el Cliente Contratante</div>
+                        <div class="signature-box">
+                            @php
+                                $firmaPath = $contract->signature_image_path 
+                                    ? public_path('storage/'.$contract->signature_image_path) 
+                                    : null;
+                            @endphp
+                            @if($firmaPath && file_exists($firmaPath))
+                                <img src="{{ $firmaPath }}" class="signature-image" alt="Firma">
+                            @else
+                                <div class="signature-line"></div>
+                            @endif
+                        </div>
+                        <div class="signature-name">{{ $contract->client_name }}</div>
+                        <div class="signature-id">C.I.: {{ $contract->client_id_number }}</div>
+                        <div class="signature-date">
+                            Fecha: {{ $contract->signed_at ? $contract->signed_at->format('d/m/Y') : '___/___/_____' }}
+                        </div>
+                    </td>
+                </tr>
+            </table>
+
+            @if($contract->signed_at)
+            <div style="margin-top: 20px; text-align: center; font-size: 10px; color: #64748b;">
+                <div style="background: #e0f2fe; padding: 10px; border-radius: 8px; display: inline-block;">
+                    <strong>Firmado digitalmente el {{ $contract->signed_at->format('d/m/Y') }} a las {{ $contract->signed_at->format('H:i:s') }}</strong><br>
+                    IP: {{ $contract->signature_ip ?? 'No registrada' }} · 
+                    Navegador: {{ $contract->signature_user_agent ?? 'No registrado' }}
+                </div>
+            </div>
+            @endif
         </div>
-
-        <div class="section-title">5. Firma y aceptación</div>
-        <div class="clause">
-            El presente contrato es válido una vez firmado digitalmente por el cliente o aceptado a través de la plataforma,
-            dejando registro de IP, fecha y consentimiento informado.
-        </div>
-
-        {{-- FIRMAS --}}
-        <div class="section-title">Firmas</div>
-        <table class="sign-table avoid-break">
-            <tr>
-                <td class="sign-cell">
-                    <div class="sign-label">Firma y sello de la empresa</div>
-                    @php $selloPath = public_path('img/sello-empresa.png'); @endphp
-                    <div class="sign-box">
-                        @if(file_exists($selloPath))
-                            <img src="{{ $selloPath }}" class="sign-img" alt="Sello empresa">
-                        @endif
-                    </div>
-                    <div class="sign-name">Publicidad en Red C.A.</div>
-                    <div class="sign-date">Fecha: {{ $contract->signed_at ? $contract->signed_at->format('d/m/Y') : '____/____/______' }}</div>
-                </td>
-
-                <td class="sign-cell">
-                    <div class="sign-label">Firma electrónica del cliente</div>
-                    @php
-                        $firmaClientePath = $contract->signature_image_path ? public_path('storage/'.$contract->signature_image_path) : null;
-                    @endphp
-                    <div class="sign-box">
-                        @if($firmaClientePath && file_exists($firmaClientePath))
-                            <img src="{{ $firmaClientePath }}" class="sign-img" alt="Firma cliente">
-                        @endif
-                    </div>
-                    <div class="sign-name">{{ $contract->client_name }}</div>
-                    <div class="sign-date">Fecha: {{ $contract->signed_at ? $contract->signed_at->format('d/m/Y') : '____/____/______' }}</div>
-                </td>
-            </tr>
-        </table>
-
     </main>
 </body>
 </html>

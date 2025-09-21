@@ -21,17 +21,23 @@ class TenantResource extends Resource
             Forms\Components\Section::make('Datos generales')
                 ->schema([
                     Forms\Components\TextInput::make('name')
-                        ->label('Nombre del cliente / marca')
-                        ->required()
-                        ->maxLength(64)
-                        ->autofocus(),
+    ->label('Nombre del cliente / marca')
+    ->required()
+    ->maxLength(64)
+    ->autofocus()
+    ->live(onBlur: true)
+    ->afterStateUpdated(fn (\Filament\Forms\Set $set, $state) =>
+        $set('slug', \Str::slug($state))
+    ),
 
-                    Forms\Components\TextInput::make('slug')
-                        ->label('Slug / Prefijo')
-                        ->helperText('Identificador único para la URL (ej: rifasmonito). Solo minúsculas, sin espacios.')
-                        ->required()
-                        ->alphaDash()
-                        ->unique(ignoreRecord: true),
+Forms\Components\TextInput::make('slug')
+    ->label('Slug / Prefijo')
+    ->helperText('Identificador único para la URL (ej: rifasmonito). Solo minúsculas, sin espacios.')
+    ->required()
+    ->alphaDash()
+    ->unique(ignoreRecord: true)
+    ->maxLength(64),
+
 
                     Forms\Components\TextInput::make('domain')
                         ->label('Dominio personalizado')
@@ -42,7 +48,7 @@ class TenantResource extends Resource
                 ])
                 ->columns(2),
 
-            Forms\Components\Section::make('Ubicación y moneda')
+            Forms\Components\Section::make('Ubicación')
                 ->schema([
                     Forms\Components\Select::make('pais')
                         ->label('País')
@@ -57,28 +63,8 @@ class TenantResource extends Resource
                         ])
                         ->required()
                         ->searchable(),
-
-                    Forms\Components\Select::make('moneda_principal')
-                        ->label('Moneda principal')
-                        ->options([
-                            'USD' => 'Dólares (USD)',
-                            'VES' => 'Bolívares (VES)',
-                            'COP' => 'Pesos Colombianos (COP)',
-                            'EUR' => 'Euros (EUR)',
-                        ])
-                        ->required()
-                        ->searchable()
-                        ->reactive(),
-
-                    Forms\Components\TextInput::make('tasa_bs')
-                        ->label('Tasa Bs (1 USD en Bs)')
-                        ->numeric()
-                        ->step('0.01')
-                        ->visible(fn ($get) => $get('moneda_principal') === 'VES')
-                        ->helperText('Solo para rifas en VES. Ej: 36.00')
-                        ->placeholder('Ej: 36.00'),
                 ])
-                ->columns(2),
+                ->columns(1),
 
             Forms\Components\Section::make('Contacto y notificaciones')
                 ->schema([
@@ -102,6 +88,28 @@ class TenantResource extends Resource
                 ])
                 ->collapsible()
                 ->collapsed(),
+
+            Forms\Components\Section::make('Plan y límite de rifas')
+                ->schema([
+                    Forms\Components\Select::make('plan')
+                        ->label('Tipo de Plan')
+                        ->options([
+                            'plus'    => 'Plus (1 rifa)',
+                            'master'  => 'Master (2 rifas)',
+                            'premium' => 'Premium (ilimitadas)',
+                        ])
+                        ->default('plus')
+                        ->required()
+                        ->helperText('Selecciona el tipo de plan del cliente. Cada plan limita la cantidad máxima de rifas.'),
+
+                    Forms\Components\TextInput::make('max_rifas')
+                        ->label('Límite manual de rifas (opcional)')
+                        ->numeric()
+                        ->minValue(1)
+                        ->nullable()
+                        ->helperText('Si asignas un valor aquí, este será el límite real de rifas, sin importar el plan. Déjalo vacío para usar el límite estándar del plan seleccionado.'),
+                ])
+                ->columns(2),
 
             Forms\Components\Section::make('Estado')
                 ->schema([
@@ -140,31 +148,19 @@ class TenantResource extends Resource
                     ->sortable()
                     ->color('gray'),
 
-                Tables\Columns\BadgeColumn::make('moneda_principal')
-                    ->label('Moneda')
-                    ->formatStateUsing(fn ($state) => match($state) {
-                        'USD' => 'USD',
-                        'VES' => 'Bs',
-                        'COP' => 'COP',
-                        'EUR' => 'EUR',
-                        default => $state,
-                    })
+                Tables\Columns\BadgeColumn::make('plan')
+                    ->label('Plan')
                     ->colors([
-                        'USD' => 'primary',
-                        'VES' => 'warning',
-                        'COP' => 'success',
-                        'EUR' => 'info',
+                        'plus'    => 'gray',
+                        'master'  => 'primary',
+                        'premium' => 'success',
                     ])
                     ->sortable(),
 
-                Tables\Columns\TextColumn::make('tasa_bs')
-                    ->label('Tasa Bs')
-                    ->formatStateUsing(fn ($state, $record) =>
-                        $record->moneda_principal === 'VES' && $state
-                            ? number_format($state, 2)
-                            : '-'
-                    )
-                    ->alignCenter(),
+                Tables\Columns\TextColumn::make('max_rifas')
+                    ->label('Límite manual')
+                    ->placeholder('—')
+                    ->sortable(),
 
                 Tables\Columns\TextColumn::make('notify_email')
                     ->label('Notif. a')
@@ -203,13 +199,23 @@ class TenantResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('moneda_principal')
-                    ->label('Moneda')
+                Tables\Filters\SelectFilter::make('pais')
+                    ->label('País')
                     ->options([
-                        'USD' => 'Dólares',
-                        'VES' => 'Bolívares',
-                        'COP' => 'Pesos Colombianos',
-                        'EUR' => 'Euros',
+                        'VE' => 'Venezuela',
+                        'CO' => 'Colombia',
+                        'EC' => 'Ecuador',
+                        'PA' => 'Panamá',
+                        'CL' => 'Chile',
+                        'MX' => 'México',
+                        'US' => 'USA',
+                    ]),
+                Tables\Filters\SelectFilter::make('plan')
+                    ->label('Plan')
+                    ->options([
+                        'plus'    => 'Plus',
+                        'master'  => 'Master',
+                        'premium' => 'Premium',
                     ]),
                 Tables\Filters\SelectFilter::make('status')
                     ->label('Estado')

@@ -51,268 +51,385 @@ class RifaResource extends Resource
         return 'success';
     }
 
+    public static function getHeaderWidgets(): array
+{
+    return [
+        \App\Filament\Tenant\Widgets\RifaLimitBanner::class,
+    ];
+}
+
+
+    public static function canCreate(): bool
+{
+    $tenant = \Filament\Facades\Filament::getTenant();
+    if (!$tenant) {
+        return false;
+    }
+
+    $rifasCount = \App\Models\Rifa::where('tenant_id', $tenant->id)->count();
+    $limit = $tenant->rifas_limit; // Accesor definido en tu modelo Tenant
+
+    // Si el límite es null (plan premium), es ilimitado
+    if (is_null($limit)) return true;
+
+    return $rifasCount < $limit;
+}
+
+
     public static function form(Form $form): Form
-    {
-        return $form->schema([
-            Forms\Components\Tabs::make('Configuración de Rifa')
-                ->tabs([
-                    
-                    // TAB 1: INFORMACIÓN GENERAL
-                    Forms\Components\Tabs\Tab::make('Información General')
-                        ->icon('heroicon-o-information-circle')
-                        ->schema([
-                            Forms\Components\Section::make('Datos principales')
-                                ->description('Información básica que verán los participantes')
-                                ->schema([
-                                    Forms\Components\FileUpload::make('banner_path')
-                                        ->label('Banner principal')
-                                        ->directory('rifas')
-                                        ->image()
-                                        ->imageEditor()
-                                        ->imageEditorAspectRatios(['16:9', '4:3', '1:1'])
-                                        ->maxSize(4096)
+{
+    return $form->schema([
+        // ALERTA ANTI-FRAUDE
+Forms\Components\Placeholder::make('antifraude_alert')
+    ->label('')
+    ->content(function (?Rifa $record) {
+        if (!$record) return null;
+        $dias = $record->created_at?->diffInDays(now()) ?? 0;
+        if ($record->is_edit_locked || $dias >= 4) {
+            return new HtmlString(
+                '🚨 <span style="color:#b91c1c;font-weight:bold">Edición bloqueada por política antifraude.</span><br>
+                Si necesitas modificar esta rifa, solicita autorización al equipo de soporte.'
+            );
+        }
+        return null;
+    })
+    ->visible(fn(?Rifa $record) =>
+        $record && ($record->is_edit_locked || ($record->created_at?->diffInDays(now()) >= 4))
+    )
+    ->columnSpanFull(),
+
+
+        // TABS PRINCIPALES
+        Forms\Components\Tabs::make('Configuración de Rifa')
+            ->tabs([
+
+                // TAB 1: INFORMACIÓN GENERAL
+                Forms\Components\Tabs\Tab::make('Información General')
+                    ->icon('heroicon-o-information-circle')
+                    ->schema([
+                        Forms\Components\Section::make('Datos principales')
+                            ->description('Información básica que verán los participantes')
+                            ->schema([
+                                Forms\Components\FileUpload::make('banner_path')
+                                    ->label('Banner principal')
+                                    ->directory('rifas')
+                                    ->image()
+                                    ->imageEditor()
+                                    ->imageEditorAspectRatios(['16:9', '4:3', '1:1'])
+                                    ->maxSize(4096)
+                                    ->required()
+                                    ->helperText('Imagen principal de la rifa (Recomendado: 1920x1080px)')
+                                    ->columnSpanFull()
+                                    ->disabled(fn (?Rifa $record) => static::isAntifraudeLocked($record)),
+
+                                Forms\Components\Grid::make(2)->schema([
+                                    Forms\Components\TextInput::make('titulo')
+                                        ->label('Título de la rifa')
                                         ->required()
-                                        ->helperText('Imagen principal de la rifa (Recomendado: 1920x1080px)')
-                                        ->columnSpanFull(),
+                                        ->maxLength(120)
+                                        ->live(onBlur: true)
+                                        ->afterStateUpdated(fn (Set $set, $state) =>
+                                            $set('slug', Str::slug($state))
+                                        )
+                                        ->prefixIcon('heroicon-m-sparkles')
+                                        ->placeholder('Ej: Gran Rifa Benéfica 2024')
+                                        ->disabled(fn (?Rifa $record) => static::isAntifraudeLocked($record)),
 
-                                    Forms\Components\Grid::make(2)->schema([
-                                        Forms\Components\TextInput::make('titulo')
-                                            ->label('Título de la rifa')
-                                            ->required()
-                                            ->maxLength(120)
-                                            ->live(onBlur: true)
-                                            ->afterStateUpdated(fn (Set $set, $state) => 
-                                                $set('slug', Str::slug($state))
-                                            )
-                                            ->prefixIcon('heroicon-m-sparkles')
-                                            ->placeholder('Ej: Gran Rifa Benéfica 2024'),
-
-                                        Forms\Components\TextInput::make('slug')
-                                            ->label('URL amigable')
-                                            ->required()
-                                            ->unique(ignoreRecord: true, modifyRuleUsing: function ($rule) {
-                                                $tenant = Filament::getTenant();
-                                                return $rule->where('tenant_id', $tenant?->id ?? 0);
-                                            })
-                                            ->prefixIcon('heroicon-m-link')
-                                            ->prefix('rifas/')
-                                            ->helperText('URL única para esta rifa'),
-                                    ]),
-
-                                    Forms\Components\Textarea::make('descripcion')
-                                        ->label('Descripción detallada')
-                                        ->rows(5)
-                                        ->helperText('Describe los premios y la mecánica del sorteo')
-                                        ->columnSpanFull(),
-                                ])
-                                ->columns(2),
-                        ]),
-
-                    // TAB 2: CONFIGURACIÓN DE VENTA
-                    Forms\Components\Tabs\Tab::make('Venta y Números')
-                        ->icon('heroicon-o-currency-dollar')
-                        ->schema([
-                            Forms\Components\Section::make('Configuración de precios')
-                                ->schema([
-                                    Forms\Components\Grid::make(4)->schema([
-                                        Forms\Components\TextInput::make('precio')
-                                            ->label('Precio por número')
-                                            ->numeric()
-                                            ->prefix('$')
-                                            ->required()
-                                            ->minValue(0.01)
-                                            ->step(0.01)
-                                            ->live(onBlur: true),
-
-                                        Forms\Components\TextInput::make('total_numeros')
-                                            ->label('Total de números')
-                                            ->numeric()
-                                            ->required()
-                                            ->minValue(10)
-                                            ->maxValue(100000)
-                                            ->default(100),
-
-                                        Forms\Components\TextInput::make('min_por_compra')
-                                            ->label('Mínimo por compra')
-                                            ->numeric()
-                                            ->minValue(1)
-                                            ->default(1),
-
-                                        Forms\Components\TextInput::make('max_por_compra')
-                                            ->label('Máximo por compra')
-                                            ->numeric()
-                                            ->minValue(1)
-                                            ->default(10),
-                                    ]),
-
-                                    Forms\Components\Placeholder::make('ingresos_estimados')
-                                        ->label('Ingresos potenciales')
-                                        ->content(function (Get $get): HtmlString {
-                                            $precio = $get('precio') ?? 0;
-                                            $total = $get('total_numeros') ?? 0;
-                                            $meta = $precio * $total;
-                                            
-                                            return new HtmlString('
-                                                <div class="flex items-center gap-4 p-4 bg-success-50 dark:bg-success-900/20 rounded-lg">
-                                                    <div class="text-3xl font-bold text-success-600 dark:text-success-400">
-                                                        $' . number_format($meta, 2) . 
-                                                    '</div>
-                                                    <div class="text-sm text-gray-600 dark:text-gray-400">
-                                                        Si se venden todos los números
-                                                    </div>
-                                                </div>
-                                            ');
-                                        }),
+                                    Forms\Components\TextInput::make('slug')
+                                        ->label('URL amigable')
+                                        ->required()
+                                        ->unique(ignoreRecord: true, modifyRuleUsing: function ($rule) {
+                                            $tenant = Filament::getTenant();
+                                            return $rule->where('tenant_id', $tenant?->id ?? 0);
+                                        })
+                                        ->prefixIcon('heroicon-m-link')
+                                        ->prefix('rifas/')
+                                        ->helperText('URL única para esta rifa')
+                                        ->disabled(fn (?Rifa $record) => static::isAntifraudeLocked($record)),
                                 ]),
-                        ]),
 
-                    // TAB 3: FECHAS Y ESTADO
-                    Forms\Components\Tabs\Tab::make('Fechas y Estado')
-                        ->icon('heroicon-o-calendar-days')
-                        ->schema([
-                            Forms\Components\Section::make('Programación')
-                                ->schema([
-                                    Forms\Components\Grid::make(3)->schema([
-                                        Forms\Components\Select::make('estado')
-                                            ->label('Estado de la rifa')
-                                            ->options([
-                                                'borrador'   => '📝 Borrador',
-                                                'activa'     => '✅ Activa',
-                                                'pausada'    => '⏸️ Pausada',
-                                                'finalizada' => '🏁 Finalizada',
-                                            ])
-                                            ->default('borrador')
-                                            ->native(false)
-                                            ->required(),
+                                Forms\Components\Textarea::make('descripcion')
+                                    ->label('Descripción detallada')
+                                    ->rows(5)
+                                    ->helperText('Describe los premios y la mecánica del sorteo')
+                                    ->columnSpanFull()
+                                    ->disabled(fn (?Rifa $record) => static::isAntifraudeLocked($record)),
+                            ])
+                            ->columns(2),
+                    ]),
 
-                                        Forms\Components\DatePicker::make('starts_at')
+                // TAB 2: CONFIGURACIÓN DE VENTA
+Forms\Components\Tabs\Tab::make('Venta y Números')
+    ->icon('heroicon-o-currency-dollar')
+    ->schema([
+        Forms\Components\Section::make('Configuración de precios')
+            ->schema([
+                Forms\Components\Grid::make(4)->schema([
+                    Forms\Components\TextInput::make('precio')
+                        ->label('Precio por número')
+                        ->numeric()
+                        ->prefix('$')
+                        ->required()
+                        ->minValue(0.01)
+                        ->step(0.01)
+                        ->live(onBlur: true)
+                        ->disabled(fn (?Rifa $record) => static::isAntifraudeLocked($record)),
+
+                    Forms\Components\TextInput::make('total_numeros')
+                        ->label('Total de números')
+                        ->numeric()
+                        ->required()
+                        ->minValue(10)
+                        ->maxValue(100000)
+                        ->default(100)
+                        ->disabled(fn (?Rifa $record) => static::isAntifraudeLocked($record)),
+
+                    Forms\Components\TextInput::make('min_por_compra')
+                        ->label('Mínimo por compra')
+                        ->numeric()
+                        ->minValue(1)
+                        ->default(1)
+                        ->disabled(fn (?Rifa $record) => static::isAntifraudeLocked($record)),
+
+                    Forms\Components\TextInput::make('max_por_compra')
+                        ->label('Máximo por compra')
+                        ->numeric()
+                        ->minValue(1)
+                        ->default(10)
+                        ->disabled(fn (?Rifa $record) => static::isAntifraudeLocked($record)),
+                ]),
+
+                Forms\Components\Placeholder::make('ingresos_estimados')
+                    ->label('Ingresos potenciales')
+                    ->content(function (Get $get): HtmlString {
+                        $precio = $get('precio') ?? 0;
+                        $total = $get('total_numeros') ?? 0;
+                        $meta = $precio * $total;
+
+                        return new HtmlString('
+                            <div class="flex items-center gap-4 p-4 bg-success-50 dark:bg-success-900/20 rounded-lg">
+                                <div class="text-3xl font-bold text-success-600 dark:text-success-400">
+                                    $' . number_format($meta, 2) . 
+                                '</div>
+                                <div class="text-sm text-gray-600 dark:text-gray-400">
+                                    Si se venden todos los números
+                                </div>
+                            </div>
+                        ');
+                    }),
+
+                // 🚀 Aquí va el Repeater de Selecciones rápidas
+                Forms\Components\Repeater::make('quick_selections')
+    ->label('Selecciones rápidas')
+    ->helperText('Crea botones de compra rápida para tus clientes: ejemplo “3x”, “5x”, “10x”. El cliente verá estos botones y podrá comprar esa cantidad de números con un clic.')
+    ->schema([
+        Forms\Components\TextInput::make('label')
+            ->label('Etiqueta')
+            ->placeholder('Ej: 3x, 5 boletos, Pack ahorro')
+            ->maxLength(20)
+            ->required()
+            ->helperText('Texto que verán los clientes. Ejemplo: "3x", "10 boletos", "Paquete Oro".'),
+
+        Forms\Components\TextInput::make('cantidad')
+            ->label('Cantidad')
+            ->numeric()
+            ->minValue(1)
+            ->maxValue(10000)
+            ->required()
+            ->helperText('Cuántos números/tickets incluye este paquete.'),
+
+        Forms\Components\TextInput::make('descuento')
+            ->label('Descuento (%)')
+            ->numeric()
+            ->minValue(0)
+            ->maxValue(100)
+            ->default(0)
+            ->helperText('Opcional. Porcentaje de descuento para este paquete (ejemplo: 10 = 10% de descuento). Si no aplica descuento, déjalo en 0.'),
+    ])
+    ->addActionLabel('Agregar selección rápida')
+    ->default([])
+    ->maxItems(6)
+    ->columns(3)
+    ->columnSpanFull()
+    ->disabled(fn (?Rifa $record) => static::isAntifraudeLocked($record)),
+
+            ]),
+    ]),
+
+                // TAB 3: FECHAS Y ESTADO
+                Forms\Components\Tabs\Tab::make('Fechas y Estado')
+                    ->icon('heroicon-o-calendar-days')
+                    ->schema([
+                        Forms\Components\Section::make('Programación')
+                            ->schema([
+                                Forms\Components\Grid::make(3)->schema([
+                                    Forms\Components\Select::make('estado')
+                                        ->label('Estado de la rifa')
+                                        ->options([
+                                            'borrador'   => '📝 Borrador',
+                                            'activa'     => '✅ Activa',
+                                            'pausada'    => '⏸️ Pausada',
+                                            'finalizada' => '🏁 Finalizada',
+                                        ])
+                                        ->default('borrador')
+                                        ->native(false)
+                                        ->required()
+                                        ->disabled(fn (?Rifa $record) => static::isAntifraudeLocked($record)),
+
+                                    Forms\Components\DatePicker::make('starts_at')
     ->label('Fecha de inicio')
     ->default(today())
-    ->minDate(today())
+    ->minDate(fn (?Rifa $record) => $record ? null : today()) // Solo en nueva rifa
     ->native(false)
-    ->displayFormat('d/m/Y'),
+    ->displayFormat('d/m/Y')
+    ->disabled(fn (?Rifa $record) => static::isAntifraudeLocked($record)),
 
 
-                                        Forms\Components\DateTimePicker::make('ends_at')
-                                            ->label('Fecha de cierre')
-                                            ->seconds(false)
-                                            ->native(false)
-                                            ->displayFormat('d/m/Y H:i')
-                                            ->minDate(fn (Get $get) => $get('starts_at')),
-                                    ]),
+                                    Forms\Components\DateTimePicker::make('ends_at')
+                                        ->label('Fecha de cierre')
+                                        ->seconds(false)
+                                        ->native(false)
+                                        ->displayFormat('d/m/Y H:i')
+                                        ->minDate(fn (Get $get) => $get('starts_at'))
+                                        ->disabled(fn (?Rifa $record) => static::isAntifraudeLocked($record)),
                                 ]),
-                        ]),
+                            ]),
+                    ]),
 
-                    // TAB 4: CONFIGURACIÓN DEL SORTEO
-                    Forms\Components\Tabs\Tab::make('Sorteo')
-                        ->icon('heroicon-o-trophy')
-                        ->schema([
-                            Forms\Components\Section::make('Configuración del sorteo')
-                                ->schema([
-                                    Forms\Components\Grid::make(2)->schema([
-                                        Forms\Components\TextInput::make('lottery_name')
-                                            ->label('Nombre de la lotería')
-                                            ->placeholder('Ej: Lotería Nacional, Lotería del Táchira')
-                                            ->maxLength(100)
-                                            ->helperText('Lotería oficial que determinará el ganador'),
+                // TAB 4: CONFIGURACIÓN DEL SORTEO
+                Forms\Components\Tabs\Tab::make('Sorteo')
+                    ->icon('heroicon-o-trophy')
+                    ->schema([
+                        Forms\Components\Section::make('Configuración del sorteo')
+                            ->schema([
+                                Forms\Components\Grid::make(2)->schema([
+                                    Forms\Components\TextInput::make('lottery_name')
+                                        ->label('Nombre de la lotería')
+                                        ->placeholder('Ej: Lotería Nacional, Lotería del Táchira')
+                                        ->maxLength(100)
+                                        ->helperText('Lotería oficial que determinará el ganador')
+                                        ->disabled(fn (?Rifa $record) => static::isAntifraudeLocked($record)),
 
-                                        Forms\Components\TextInput::make('lottery_type')
-                                            ->label('Tipo o modalidad')
-                                            ->placeholder('Ej: Triple A, Zodiacal')
-                                            ->maxLength(100)
-                                            ->helperText('Solo si la lotería tiene modalidades'),
-                                    ]),
-
-                                    Forms\Components\Grid::make(2)->schema([
-                                        Forms\Components\DateTimePicker::make('draw_at')
-                                            ->label('Fecha y hora del sorteo')
-                                            ->seconds(false)
-                                            ->native(false)
-                                            ->displayFormat('d/m/Y H:i')
-                                            ->helperText('¿Cuándo se realizará el sorteo?'),
-
-                                        Forms\Components\TextInput::make('external_draw_ref')
-                                            ->label('Referencia externa')
-                                            ->placeholder('Ej: Número de sorteo, código')
-                                            ->helperText('Referencia opcional del sorteo oficial'),
-                                    ]),
+                                    Forms\Components\TextInput::make('lottery_type')
+                                        ->label('Tipo o modalidad')
+                                        ->placeholder('Ej: Triple A, Zodiacal')
+                                        ->maxLength(100)
+                                        ->helperText('Solo si la lotería tiene modalidades')
+                                        ->disabled(fn (?Rifa $record) => static::isAntifraudeLocked($record)),
                                 ]),
 
-                            Forms\Components\Section::make('Premios adicionales')
-                                ->description('Configura premios secundarios si lo deseas')
-                                ->collapsed()
-                                ->schema([
-                                    Forms\Components\Repeater::make('specialPrizes')
-                                        ->label('')
-                                        ->relationship('specialPrizes')
-                                        ->schema([
-                                            Forms\Components\Grid::make(12)->schema([
-                                                Forms\Components\TextInput::make('title')
-                                                    ->label('Nombre del premio')
-                                                    ->required()
-                                                    ->placeholder('Ej: Segundo premio')
-                                                    ->columnSpan(6),
+                                Forms\Components\Grid::make(2)->schema([
+                                    Forms\Components\DateTimePicker::make('draw_at')
+                                        ->label('Fecha y hora del sorteo')
+                                        ->seconds(false)
+                                        ->native(false)
+                                        ->displayFormat('d/m/Y H:i')
+                                        ->helperText('¿Cuándo se realizará el sorteo?')
+                                        ->disabled(fn (?Rifa $record) => static::isAntifraudeLocked($record)),
 
-                                                Forms\Components\TextInput::make('lottery_name')
-                                                    ->label('Lotería')
-                                                    ->required()
-                                                    ->placeholder('Ej: Lotería del Zulia')
-                                                    ->columnSpan(3),
-                                                    
-                                                Forms\Components\TextInput::make('lottery_type')
-                                                    ->label('Tipo')
-                                                    ->placeholder('Opcional')
-                                                    ->columnSpan(3),
-
-                                                Forms\Components\DateTimePicker::make('draw_at')
-                                                    ->label('Fecha del sorteo')
-                                                    ->seconds(false)
-                                                    ->native(false)
-                                                    ->displayFormat('d/m/Y H:i')
-                                                    ->columnSpan(6),
-                                            ]),
-                                        ])
-                                        ->mutateRelationshipDataBeforeCreateUsing(function (array $data) {
-                                            $data['tenant_id'] = Filament::getTenant()?->id;
-                                            return $data;
-                                        })
-                                        ->defaultItems(0)
-                                        ->maxItems(10)
-                                        ->addActionLabel('➕ Agregar premio adicional')
-                                        ->itemLabel(fn (array $state): ?string => 
-                                            $state['title'] ?? 'Premio especial'
-                                        )
-                                        ->collapsible()
-                                        ->reorderable(),
+                                    Forms\Components\TextInput::make('external_draw_ref')
+                                        ->label('Referencia externa')
+                                        ->placeholder('Ej: Número de sorteo, código')
+                                        ->helperText('Referencia opcional del sorteo oficial')
+                                        ->disabled(fn (?Rifa $record) => static::isAntifraudeLocked($record)),
                                 ]),
-                        ]),
+                            ]),
 
-                    // TAB 5: PERSONALIZACIÓN VISUAL
-                    Forms\Components\Tabs\Tab::make('Personalización')
-                        ->icon('heroicon-o-paint-brush')
-                        ->schema([
-                            Forms\Components\Section::make('Apariencia visual')
-                                ->schema([
-                                    Forms\Components\Grid::make(2)->schema([
-                                        Forms\Components\ColorPicker::make('bg_color')
-                                            ->label('Color de fondo')
-                                            ->helperText('Color de fondo personalizado (opcional)'),
+                        Forms\Components\Section::make('Premios adicionales')
+                            ->description('Configura premios secundarios si lo deseas')
+                            ->collapsed()
+                            ->schema([
+                                Forms\Components\Repeater::make('specialPrizes')
+                                    ->label('')
+                                    ->relationship('specialPrizes')
+                                    ->schema([
+                                        Forms\Components\Grid::make(12)->schema([
+                                            Forms\Components\TextInput::make('title')
+                                                ->label('Nombre del premio')
+                                                ->required()
+                                                ->placeholder('Ej: Segundo premio')
+                                                ->columnSpan(6)
+                                                ->disabled(fn (?Rifa $record) => static::isAntifraudeLocked($record)),
 
-                                        Forms\Components\FileUpload::make('bg_image_path')
-                                            ->label('Imagen de fondo')
-                                            ->directory('rifa-backgrounds')
-                                            ->image()
-                                            ->imageEditor()
-                                            ->maxSize(2048)
-                                            ->helperText('Imagen de fondo (opcional, máx. 2MB)'),
-                                    ]),
+                                            Forms\Components\TextInput::make('lottery_name')
+                                                ->label('Lotería')
+                                                ->required()
+                                                ->placeholder('Ej: Lotería del Zulia')
+                                                ->columnSpan(3)
+                                                ->disabled(fn (?Rifa $record) => static::isAntifraudeLocked($record)),
+
+                                            Forms\Components\TextInput::make('lottery_type')
+                                                ->label('Tipo')
+                                                ->placeholder('Opcional')
+                                                ->columnSpan(3)
+                                                ->disabled(fn (?Rifa $record) => static::isAntifraudeLocked($record)),
+
+                                            Forms\Components\DateTimePicker::make('draw_at')
+                                                ->label('Fecha del sorteo')
+                                                ->seconds(false)
+                                                ->native(false)
+                                                ->displayFormat('d/m/Y H:i')
+                                                ->columnSpan(6)
+                                                ->disabled(fn (?Rifa $record) => static::isAntifraudeLocked($record)),
+                                        ]),
+                                    ])
+                                    ->mutateRelationshipDataBeforeCreateUsing(function (array $data) {
+                                        $data['tenant_id'] = Filament::getTenant()?->id;
+                                        return $data;
+                                    })
+                                    ->defaultItems(0)
+                                    ->maxItems(10)
+                                    ->addActionLabel('➕ Agregar premio adicional')
+                                    ->itemLabel(fn (array $state): ?string => 
+                                        $state['title'] ?? 'Premio especial'
+                                    )
+                                    ->collapsible()
+                                    ->reorderable(),
+                            ]),
+                    ]),
+
+                // TAB 5: PERSONALIZACIÓN VISUAL
+                Forms\Components\Tabs\Tab::make('Personalización')
+                    ->icon('heroicon-o-paint-brush')
+                    ->schema([
+                        Forms\Components\Section::make('Apariencia visual')
+                            ->schema([
+                                Forms\Components\Grid::make(2)->schema([
+                                    Forms\Components\ColorPicker::make('bg_color')
+                                        ->label('Color de fondo')
+                                        ->helperText('Color de fondo personalizado (opcional)')
+                                        ->disabled(fn (?Rifa $record) => static::isAntifraudeLocked($record)),
+
+                                    Forms\Components\FileUpload::make('bg_image_path')
+                                        ->label('Imagen de fondo')
+                                        ->directory('rifa-backgrounds')
+                                        ->image()
+                                        ->imageEditor()
+                                        ->maxSize(2048)
+                                        ->helperText('Imagen de fondo (opcional, máx. 2MB)')
+                                        ->disabled(fn (?Rifa $record) => static::isAntifraudeLocked($record)),
                                 ]),
-                        ]),
-                ])
-                ->columnSpanFull()
-                ->persistTabInQueryString(),
-        ]);
+                            ]),
+                    ]),
+
+            ])
+            ->columnSpanFull()
+            ->persistTabInQueryString(),
+    ]);
+}
+
+public static function isAntifraudeLocked(?Rifa $record): bool
+{
+    if (!$record) return false;
+    // Permitir al super_admin siempre editar, aunque esté bloqueado
+    $user = auth()->user();
+    if ($user && $user->hasRole('super_admin')) {
+        return false; // nunca bloquea para el super admin
     }
+    $dias = $record->created_at?->diffInDays(now()) ?? 0;
+    return $record->is_edit_locked || $dias >= 4;
+}
+
 
     public static function table(Table $table): Table
     {
@@ -449,23 +566,7 @@ class RifaResource extends Resource
                         })
                         ->visible(fn (Rifa $record) => $record->numeros()->count() === 0),
                     
-                    Tables\Actions\Action::make('duplicar')
-                        ->label('Duplicar')
-                        ->icon('heroicon-o-document-duplicate')
-                        ->color('info')
-                        ->action(function (Rifa $record) {
-                            $nueva = $record->replicate();
-                            $nueva->titulo = $record->titulo . ' (Copia)';
-                            $nueva->slug = Str::slug($nueva->titulo) . '-' . now()->timestamp;
-                            $nueva->estado = 'borrador';
-                            $nueva->save();
-                            
-                            Notification::make()
-                                ->title('📋 Rifa duplicada')
-                                ->body('Se creó una copia de la rifa.')
-                                ->success()
-                                ->send();
-                        }),
+                    
                 ])
                 ->label('Acciones')
                 ->icon('heroicon-m-ellipsis-vertical')

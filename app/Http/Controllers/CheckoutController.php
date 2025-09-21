@@ -12,183 +12,206 @@ use App\Enums\OrderStatus;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Schema;
-use App\Mail\OrderReservedUserMail;
-use App\Mail\OrderReservedAdminMail;
 use App\Mail\PaymentSubmittedMail;
 use App\Services\PaymentAccountService;
 
 class CheckoutController extends Controller
 {
     /**
-     * Crea la orden y reserva los números.
-     */
-    public function storeReservation(Tenant $tenant, Rifa $rifa, Request $request)
-    {
-        // Detectar flujo: reserve | pay
-        $flow     = strtolower($request->input('flow', $request->boolean('pay_now') ? 'pay' : 'reserve'));
-        $isPayNow = in_array($flow, ['pay', 'pay-now', 'pagar'], true);
+ * Versión mejorada de storeReservation en CheckoutController
+ * que maneja automáticamente cuando los números no están disponibles
+ */
+public function storeReservation(Tenant $tenant, Rifa $rifa, Request $request)
+{
+    // Detectar flujo: reserve | pay
+    $flow     = strtolower($request->input('flow', $request->boolean('pay_now') ? 'pay' : 'reserve'));
+    $isPayNow = in_array($flow, ['pay', 'pay-now', 'pagar'], true);
 
-        if ($rifa->tenant_id !== $tenant->id) {
-            abort(404);
+    if ($rifa->tenant_id !== $tenant->id) {
+        abort(404);
+    }
+
+    if (($rifa->estado ?? null) !== 'activa') {
+        return response()->json(['ok' => false, 'message' => 'Esta rifa no está disponible en este momento.'], 422);
+    }
+
+    $numbers = collect((array) $request->input('numbers', []))
+        ->map(fn ($n) => (int) $n)
+        ->filter(fn ($n) => $n > 0)
+        ->unique()
+        ->values();
+
+    if ($numbers->isEmpty()) {
+        return response()->json(['ok' => false, 'message' => 'Debes enviar al menos un número.'], 422);
+    }
+
+    $cantidadSolicitada = $numbers->count();
+    $min = (int) ($rifa->min_por_compra ?? 1);
+    $max = (int) ($rifa->max_por_compra ?? PHP_INT_MAX);
+    
+    if ($cantidadSolicitada < $min) {
+        return response()->json(['ok' => false, 'message' => "Debes seleccionar al menos {$min} números."], 422);
+    }
+    if ($cantidadSolicitada > $max) {
+        return response()->json(['ok' => false, 'message' => "Máximo {$max} números por compra."], 422);
+    }
+
+    $minutes = (int) $request->integer('minutes', 240);
+    $minutes = max(5, min(240, $minutes));
+
+    $customer_name  = $request->input('nombre', $request->input('customer_name'));
+    $customer_phone = $request->input('whatsapp', $request->input('customer_whatsapp', $request->input('customer_phone')));
+    $customer_email = $request->input('email', $request->input('customer_email'));
+
+    try {
+    // Variable para almacenar los números reservados (fuera del transaction)
+    $reservedNumbers = [];
+    
+    $order = DB::transaction(function () use ($tenant, $rifa, $numbers, $minutes, $customer_name, $customer_phone, $customer_email, $isPayNow, $request, $cantidadSolicitada, &$reservedNumbers) {
+        
+        // Primer intento: verificar los números solicitados
+        $rows = RifaNumero::where('rifa_id', $rifa->id)
+            ->whereIn('numero', $numbers)
+            ->lockForUpdate()
+            ->get(['id', 'numero', 'estado']);
+
+        // Verificar cuáles están disponibles
+        $disponibles = $rows->filter(fn ($r) => $r->estado === NumeroEstado::Disponible);
+        $numerosDisponibles = $disponibles->pluck('numero');
+        
+        // Si no todos están disponibles, buscar alternativas
+        if ($disponibles->count() < $cantidadSolicitada) {
+            \Log::info('No todos los números están disponibles, buscando alternativas', [
+                'solicitados' => $numbers->toArray(),
+                'disponibles' => $numerosDisponibles->toArray(),
+                'faltantes' => $cantidadSolicitada - $disponibles->count()
+            ]);
+            
+            $faltantes = $cantidadSolicitada - $disponibles->count();
+            
+            // Buscar números alternativos disponibles
+            $alternativos = RifaNumero::where('rifa_id', $rifa->id)
+                ->where('estado', NumeroEstado::Disponible)
+                ->whereNotIn('numero', $numerosDisponibles)
+                ->inRandomOrder()
+                ->limit($faltantes * 2)
+                ->lockForUpdate()
+                ->get(['id', 'numero', 'estado']);
+            
+            $alternativosDisponibles = $alternativos->filter(fn ($r) => $r->estado === NumeroEstado::Disponible)
+                ->take($faltantes);
+            
+            $todosLosNumeros = $disponibles->concat($alternativosDisponibles);
+            
+            if ($todosLosNumeros->count() < $cantidadSolicitada) {
+                $totalDisponibles = RifaNumero::where('rifa_id', $rifa->id)
+                    ->where('estado', NumeroEstado::Disponible)
+                    ->count();
+                
+                throw new \Exception("Solo hay {$totalDisponibles} números disponibles en total. Por favor, reduce la cantidad.");
+            }
+            
+            $rows = $todosLosNumeros;
+            $numerosFinales = $todosLosNumeros->pluck('numero');
+            
+            \Log::info('Números finales asignados', [
+                'originales' => $numerosDisponibles->toArray(),
+                'alternativos' => $alternativosDisponibles->pluck('numero')->toArray(),
+                'finales' => $numerosFinales->toArray()
+            ]);
+        } else {
+            $numerosFinales = $numerosDisponibles;
         }
 
-        if (($rifa->estado ?? null) !== 'activa') {
-            return response()->json(['ok' => false, 'message' => 'Esta rifa no está disponible en este momento.'], 422);
+        // IMPORTANTE: Guardar los números en la variable por referencia
+        $reservedNumbers = $numerosFinales->toArray();
+
+        // Continuar con la creación de la orden
+        $now   = Carbon::now('America/Caracas');
+        $until = $now->copy()->addMinutes($minutes);
+
+        $code  = strtoupper(Str::random(8));
+        $total = $numerosFinales->count() * (float) $rifa->precio;
+
+        $order = new Order();
+        $order->tenant_id      = $tenant->id;
+        $order->rifa_id        = $rifa->id;
+        $order->code           = $code;
+        $order->status         = OrderStatus::Pending;
+        $order->total_amount   = $total;
+        $order->expires_at     = $until;
+        $order->customer_name  = $customer_name;
+        $order->customer_phone = $customer_phone;
+        $order->customer_email = $customer_email;
+        $order->save();
+
+        // Si es pago directo y hay voucher, guardarlo
+        if ($isPayNow && $request->hasFile('voucher')) {
+            $path = $request->file('voucher')->store("vouchers/{$order->id}", 'public');
+            $order->voucher_path = $path;
+            $order->save();
         }
 
-        $numbers = collect((array) $request->input('numbers', []))
-            ->map(fn ($n) => (int) $n)
-            ->filter(fn ($n) => $n > 0)
-            ->unique()
-            ->values();
-
-        if ($numbers->isEmpty()) {
-            return response()->json(['ok' => false, 'message' => 'Debes enviar al menos un número.'], 422);
+        // Crear los items con los números finales
+        $items = [];
+        foreach ($rows as $r) {
+            $items[] = [
+                'tenant_id'  => $tenant->id,
+                'order_id'   => $order->id,
+                'rifa_id'    => $rifa->id,
+                'numero'     => $r->numero,
+                'price'      => (float) $rifa->precio,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ];
         }
+        OrderItem::insert($items);
 
-        $min = (int) ($rifa->min_por_compra ?? 1);
-        $max = (int) ($rifa->max_por_compra ?? PHP_INT_MAX);
-        if ($numbers->count() < $min) {
-            return response()->json(['ok' => false, 'message' => "Debes seleccionar al menos {$min} números."], 422);
-        }
-        if ($numbers->count() > $max) {
-            return response()->json(['ok' => false, 'message' => "Máximo {$max} números por compra."], 422);
-        }
+        // Actualizar el estado de los números a reservado
+        RifaNumero::whereIn('id', $rows->pluck('id'))->update([
+            'estado'          => NumeroEstado::Reservado,
+            'reservado_hasta' => $until,
+            'updated_at'      => $now,
+        ]);
 
-        $minutes = (int) $request->integer('minutes', 240);
-        $minutes = max(5, min(240, $minutes));
-
-        $customer_name  = $request->input('nombre', $request->input('customer_name'));
-        $customer_phone = $request->input('whatsapp', $request->input('customer_whatsapp', $request->input('customer_phone')));
-        $customer_email = $request->input('email', $request->input('customer_email'));
-
-        try {
-            $order = DB::transaction(function () use ($tenant, $rifa, $numbers, $minutes, $customer_name, $customer_phone, $customer_email, $isPayNow, $request) {
-                $rows = RifaNumero::where('rifa_id', $rifa->id)
-                    ->whereIn('numero', $numbers)
-                    ->lockForUpdate()
-                    ->get(['id', 'numero', 'estado']);
-
-                if ($rows->count() !== $numbers->count()) {
-                    abort(409, 'Algunos números no existen.');
-                }
-
-                $noDisp = $rows->first(fn ($r) => $r->estado !== NumeroEstado::Disponible);
-                if ($noDisp) {
-                    abort(409, "El número #{$noDisp->numero} ya no está disponible.");
-                }
-
-                $now   = Carbon::now('America/Caracas');
-                $until = $now->copy()->addMinutes($minutes);
-
-                $code  = strtoupper(Str::random(8));
-                $total = $numbers->count() * (float) $rifa->precio;
-
-                $order = new Order();
-                $order->tenant_id      = $tenant->id;
-                $order->rifa_id        = $rifa->id;
-                $order->code           = $code;
-                $order->status         = OrderStatus::Pending;
-                $order->total_amount   = $total;
-                $order->expires_at     = $until;
-                $order->customer_name  = $customer_name;
-                $order->customer_phone = $customer_phone;
-                $order->customer_email = $customer_email;
-
-                // Para "pagar ahora", solo crear la orden. NO guardar aún datos de pago ni marcar como pagada.
-// El usuario irá al formulario de pago, donde sí ingresará esos datos.
-if ($isPayNow) {
-    // Opcional: puedes darle un tiempo extra para que no expire muy rápido mientras paga.
-    // $order->expires_at = Carbon::now('America/Caracas')->addMinutes(30);
-    // O dejar la expiración normal.
+        // NO intentar guardar reserved_numbers en la BD
+        return $order;
+    }, 3);
+    
+} catch (\Throwable $e) {
+    report($e);
+    return response()->json(['ok' => false, 'message' => $e->getMessage()], 500);
 }
 
-
-                $order->save();
-
-                // Si es pago directo y hay voucher, guardarlo después de crear la orden
-                if ($isPayNow && $request->hasFile('voucher')) {
-                    $path = $request->file('voucher')->store("vouchers/{$order->id}", 'public');
-                    $order->voucher_path = $path;
-                    $order->save();
-                }
-
-                $items = [];
-                foreach ($rows as $r) {
-                    $items[] = [
-                        'tenant_id'  => $tenant->id,
-                        'order_id'   => $order->id,
-                        'rifa_id'    => $rifa->id,
-                        'numero'     => $r->numero,
-                        'price'      => (float) $rifa->precio,
-                        'created_at' => $now,
-                        'updated_at' => $now,
-                    ];
-                }
-                OrderItem::insert($items);
-
-                RifaNumero::whereIn('id', $rows->pluck('id'))->update([
-                    'estado'          => NumeroEstado::Reservado,
-                    'reservado_hasta' => $until,
-                    'updated_at'      => $now,
-                ]);
-
-                return $order;
-            }, 3);
-        } catch (\Throwable $e) {
-            if (method_exists($e, 'getStatusCode') && $e->getStatusCode() === 409) {
-                return response()->json(['ok' => false, 'message' => $e->getMessage()], 409);
-            }
-            report($e);
-            return response()->json(['ok' => false, 'message' => 'Error 500. No fue posible reservar.'], 500);
-        }
-
-        // ==========================
-        // Envío de Emails
-        // ==========================
-        if ($isPayNow) {
-            // Para pago directo, enviar email de pago recibido
-            try {
-                if ($order->customer_email && filter_var($order->customer_email, FILTER_VALIDATE_EMAIL)) {
-                    Mail::to($order->customer_email)->queue(new PaymentSubmittedMail($order));
-                }
-            } catch (\Throwable $e) { report($e); }
-
-            try {
-                $adminEmail = $order->tenant->notify_email
-                    ?? config('mail.admin_address')
-                    ?? config('mail.from.address');
-
-                if ($adminEmail && filter_var($adminEmail, FILTER_VALIDATE_EMAIL)) {
-                    Mail::to($adminEmail)->queue(new PaymentSubmittedMail($order));
-                }
-            } catch (\Throwable $e) { report($e); }
-        } else {
-            // Para reserva normal, enviar emails de reserva
-            try {
-                if ($order->customer_email && filter_var($order->customer_email, FILTER_VALIDATE_EMAIL)) {
-                    Mail::to($order->customer_email)->queue(new OrderReservedUserMail($order));
-                }
-            } catch (\Throwable $e) { report($e); }
-
-            try {
-                $adminEmail = $order->tenant->notify_email
-                    ?? config('mail.admin_address')
-                    ?? config('mail.from.address');
-
-                if ($adminEmail && filter_var($adminEmail, FILTER_VALIDATE_EMAIL)) {
-                    Mail::to($adminEmail)->queue(new OrderReservedAdminMail($order));
-                }
-            } catch (\Throwable $e) { report($e); }
-        }
-
-        // Redirección según flujo
-        $redirect = $isPayNow
-    ? route('store.checkout', ['tenant' => $tenant->slug ?? $tenant->id, 'code' => $order->code])
-    : route('store.reserve.confirm', ['tenant' => $tenant->slug ?? $tenant->id, 'code' => $order->code]);
-
-        return response()->json(['ok' => true, 'redirect' => $redirect, 'flow' => $isPayNow ? 'pay' : 'reserve']);
+    // Si el resultado de la transacción es una respuesta JSON (error), devolverla
+    if ($order instanceof \Illuminate\Http\JsonResponse) {
+        return $order;
     }
+
+ 
+// Construir redirect según flujo
+$redirect = $isPayNow
+    ? route('store.checkout', [
+        'tenant' => $tenant->slug ?? $tenant->id,
+        'code'   => $order->code,
+      ])
+    : route('store.reserve.confirm', [
+        'tenant' => $tenant->slug ?? $tenant->id,
+        'code'   => $order->code,
+      ]);
+
+return response()->json([
+    'ok'               => true,
+    'code'             => $order->code,
+    'redirect'         => $redirect,
+    'flow'             => $isPayNow ? 'pay' : 'reserve',
+    'reserved_numbers' => $reservedNumbers,
+    'message'          => count($reservedNumbers) === $cantidadSolicitada
+        ? 'Números reservados exitosamente'
+        : 'Se asignaron números alternativos disponibles',
+]);
+
+}
 
     /** Muestra el checkout de la orden */
     public function show(Tenant $tenant, string $code)
@@ -338,18 +361,19 @@ if ($isPayNow) {
      * Muestra la confirmación de pago procesado
      */
     public function confirmation(Tenant $tenant, string $code)
-    {
-        $order = Order::where('tenant_id', $tenant->id)
-            ->where('code', $code)
-            ->where('status', OrderStatus::Submitted)
-            ->with(['items', 'paymentAccount', 'rifa'])
-            ->firstOrFail();
+{
+    // CAMBIO: Aceptar tanto Submitted como Paid
+    $order = Order::where('tenant_id', $tenant->id)
+        ->where('code', $code)
+        ->whereIn('status', [OrderStatus::Submitted, OrderStatus::Paid]) // <- CAMBIO AQUÍ
+        ->with(['items', 'paymentAccount', 'rifa'])
+        ->firstOrFail();
 
-        // Generar URL del verificador
-        $verifyUrl = route('store.verify', [
-            'tenant' => $tenant->slug,
-            'code' => $order->code,
-        ]);
+    // El resto del método permanece igual...
+    $verifyUrl = route('store.verify', [
+        'tenant' => $tenant->slug,
+        'code' => $order->code,
+    ]);
 
         // Generar QR
         $qrCode = null;
@@ -374,57 +398,123 @@ if ($isPayNow) {
     }
 
     /** Recibe confirmación de pago (desde el checkout) */
-    public function pay(Tenant $tenant, string $code, Request $request)
-    {
-        $order = Order::where('tenant_id', $tenant->id)->where('code', $code)->firstOrFail();
+public function pay(Tenant $tenant, string $code, Request $request)
+{
+    $order = Order::where('tenant_id', $tenant->id)->where('code', $code)->firstOrFail();
 
-        if ($order->status === OrderStatus::Paid) {
-            return response()->json(['ok' => false, 'message' => 'Esta orden ya fue pagada.'], 422);
-        }
+    // URL de confirmación (la usaremos varias veces)
+    $confirmUrl = route('store.checkout.confirmation', [
+        'tenant' => $tenant->slug ?? $tenant->id,
+        'code'   => $order->code,
+    ]);
 
-        if ($order->status === OrderStatus::Submitted) {
-            return response()->json(['ok' => false, 'message' => 'Esta orden ya está en proceso de verificación.'], 422);
-        }
-
-        if ($order->status === OrderStatus::Pending && $order->expires_at && $order->expires_at->isPast()) {
-            return response()->json(['ok' => false, 'message' => 'La reserva ya venció.'], 422);
-        }
-
-        Validator::validate($request->all(), [
-            'payment_account_id' => ['required'],
-            'referencia'         => ['required', 'string', 'max:64'],
-            'voucher'            => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:5120'], // 5MB
-        ]);
-
-        // Actualiza estatus y guarda campos
-        $order->status = OrderStatus::Submitted;
-        $order->payment_account_id = $request->input('payment_account_id');
-        $order->referencia = $request->input('referencia');
-
-        if ($request->hasFile('voucher')) {
-            $path = $request->file('voucher')->store("vouchers/{$order->id}", 'public');
-            $order->voucher_path = $path;
-        }
-
-        $order->save();
-
-        // Enviar correo de "pago enviado"
-        try {
-            if ($order->customer_email && filter_var($order->customer_email, FILTER_VALIDATE_EMAIL)) {
-                Mail::to($order->customer_email)->queue(new PaymentSubmittedMail($order));
-            }
-        } catch (\Throwable $e) { report($e); }
-
-        try {
-            $adminEmail = $order->tenant->notify_email
-                ?? config('mail.admin_address')
-                ?? config('mail.from.address');
-
-            if ($adminEmail && filter_var($adminEmail, FILTER_VALIDATE_EMAIL)) {
-                Mail::to($adminEmail)->queue(new PaymentSubmittedMail($order));
-            }
-        } catch (\Throwable $e) { report($e); }
-
-        return response()->json(['ok' => true, 'message' => 'Pago enviado, será verificado.']);
+    // === Idempotencia: si ya está Paid, trata como éxito y redirige a confirmación
+    if ($order->status === OrderStatus::Paid) {
+        return $request->expectsJson()
+            ? response()->json(['ok' => true, 'redirect' => $confirmUrl])
+            : redirect()->to($confirmUrl);
     }
+
+    // === Idempotencia: si ya está Submitted, trata como éxito y redirige a confirmación
+    if ($order->status === OrderStatus::Submitted) {
+        return $request->expectsJson()
+            ? response()->json([
+                'ok'       => true,
+                'message'  => 'Pago ya enviado. Te llevamos a la confirmación.',
+                'redirect' => $confirmUrl,
+            ])
+            : redirect()->to($confirmUrl);
+    }
+
+    // Reserva expirada
+    if ($order->status === OrderStatus::Pending && $order->expires_at && $order->expires_at->isPast()) {
+        return $request->expectsJson()
+            ? response()->json(['ok' => false, 'message' => 'La reserva ya venció.'], 422)
+            : back()->withErrors(['referencia' => 'La reserva ya venció.']);
+    }
+
+    // Validación de inputs - ACTUALIZADA con campos obligatorios del cliente
+    Validator::validate($request->all(), [
+        'payment_account_id' => ['required'],
+        'referencia'         => ['required', 'string', 'max:64'],
+        'voucher'            => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:5120'],
+        'customer_email'     => ['required', 'email', 'max:255'],
+        'customer_name'      => ['required', 'string', 'max:255'],
+        'customer_whatsapp'  => ['required', 'string', 'max:50'],
+    ]);
+
+    // Actualiza estatus y guarda campos
+    $order->status = OrderStatus::Submitted;
+    $order->payment_account_id = $request->input('payment_account_id');
+    $order->referencia = $request->input('referencia');
+
+    // SOLUCIÓN: Guardar datos del cliente que vienen del formulario
+    if ($request->filled('customer_email')) {
+        $order->customer_email = $request->input('customer_email');
+    }
+    if ($request->filled('customer_name')) {
+        $order->customer_name = $request->input('customer_name');
+    }
+    if ($request->filled('customer_whatsapp')) {
+        $order->customer_phone = $request->input('customer_whatsapp'); // Se guarda como customer_phone
+    }
+
+    // Log para debug (opcional, puedes removerlo después de verificar que funciona)
+    \Log::info('Datos del cliente guardados en pay()', [
+        'order_id' => $order->id,
+        'email' => $order->customer_email,
+        'name' => $order->customer_name,
+        'phone' => $order->customer_phone
+    ]);
+
+    if ($request->hasFile('voucher')) {
+        $path = $request->file('voucher')->store("vouchers/{$order->id}", 'public');
+        $order->voucher_path = $path;
+    }
+
+    $order->save();
+
+ // Correos "pago enviado"
+try {
+    if ($order->customer_email && filter_var($order->customer_email, FILTER_VALIDATE_EMAIL)) {
+        // Cliente recibe su correo (vista: emails/payment-submitted.blade.php)
+        Mail::to($order->customer_email)->queue(new \App\Mail\PaymentSubmittedMail($order, 'customer'));
+        \Log::info('Email encolado para el cliente', ['email' => $order->customer_email]);
+    }
+} catch (\Throwable $e) { 
+    \Log::error('Error enviando email al cliente', ['error' => $e->getMessage()]);
+    report($e); 
+}
+
+try {
+    $adminEmail = $order->tenant->notify_email
+        ?? config('mail.admin_address')
+        ?? config('mail.from.address');
+
+    if ($adminEmail && filter_var($adminEmail, FILTER_VALIDATE_EMAIL)) {
+        // Admin recibe su correo (vista: emails/orders/payment-submitted-admin.blade.php)
+        // y con Reply-To apuntando al cliente
+        Mail::to($adminEmail)->queue(new \App\Mail\PaymentSubmittedMail($order, 'admin'));
+        \Log::info('Email encolado para el admin', ['email' => $adminEmail]);
+    }
+} catch (\Throwable $e) { 
+    \Log::error('Error enviando email al admin', ['error' => $e->getMessage()]);
+    report($e); 
+}
+
+
+    // ==========================
+
+    // Respuesta según tipo de request
+    if ($request->expectsJson()) {
+        return response()->json([
+            'ok'       => true,
+            'message'  => 'Pago enviado, será verificado.',
+            'redirect' => $confirmUrl,  // para que el front redirija sin más
+        ]);
+    }
+
+    return redirect()->to($confirmUrl);
+}
+
 }

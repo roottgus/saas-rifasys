@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne; // <-- IMPORTANTE
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Tenant extends Model
 {
@@ -21,7 +21,9 @@ class Tenant extends Model
         'domain',
         'branding_json',
         'notify_email',
-        'status'
+        'status',
+        'plan',        // <-- NUEVO
+        'max_rifas',   // <-- NUEVO
     ];
 
     protected $casts = [
@@ -114,5 +116,22 @@ class Tenant extends Model
     {
         // Si la moneda principal es VES, se debe mostrar/manejar Bs
         return $this->moneda_principal === 'VES';
+    }
+
+    /** === Límite de rifas según plan (pro!) === */
+    public function getRifasLimitAttribute()
+    {
+        // Si hay override manual
+        if (!is_null($this->max_rifas)) {
+            return $this->max_rifas;
+        }
+
+        // Por plan
+        return match($this->plan) {
+            'plus'    => 1,
+            'master'  => 2,
+            'premium' => null, // null es ilimitado
+            default   => 1,
+        };
     }
 }

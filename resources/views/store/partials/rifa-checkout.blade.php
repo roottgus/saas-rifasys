@@ -84,15 +84,21 @@
       <div class="mt-2 flex flex-col items-center gap-2">
         <span class="text-xs font-semibold uppercase tracking-widest text-gray-500">Tu selección</span>
         <div class="mt-1 flex min-h-[32px] flex-wrap items-center justify-center gap-2">
-          <div id="sumList" class="chips-scroll flex max-w-[340px] flex-wrap gap-1 overflow-x-auto">
-            @if(isset($order) && $order && $order->items)
-              @foreach($order->items->pluck('numero')->sort() as $num)
-                <span class="pill bg-white border border-blue-200 px-3 py-1 text-blue-800 font-bold shadow-sm text-base">
-                  #{{ str_pad($num, 3, '0', STR_PAD_LEFT) }}
-                </span>
-              @endforeach
-            @endif
-          </div>
+          <div id="sumList"
+     class="mt-1 w-full flex flex-wrap items-center justify-center gap-2 sm:gap-2.5 lg:gap-3">
+
+  @if(isset($order) && $order && $order->items)
+    @foreach($order->items->pluck('numero')->sort() as $num)
+      <span class="flex items-center justify-center
+             w-12 h-12 md:w-14 md:h-14
+             font-extrabold text-blue-900 text-sm md:text-base
+             rounded-xl border-2 border-green-400 border-dashed bg-green-50
+             shadow select-none animate-pulse">
+  #{{ str_pad($num, 3, '0', STR_PAD_LEFT) }}
+</span>
+    @endforeach
+  @endif
+</div>
 
           @if(!isset($order) || !$order)
             <button id="changeSelection" type="button" aria-label="Modificar selección"
@@ -122,58 +128,62 @@
   enctype="multipart/form-data"
   novalidate
   action="{{ $payUrl ?: '#' }}"
+  method="POST"
   data-pay-url="{{ $payUrl }}"
   data-tenant-slug="{{ $tSlug ?? '' }}"
   data-order-code="{{ $orderCode ?? '' }}"
 >
-  {{-- DATOS DEL CLIENTE --}}
-  <div class="grid gap-4 md:grid-cols-2">
-    {{-- Nombre --}}
-    <div class="relative mb-2 flex flex-col gap-1">
-      <label for="customer_name" class="mb-1 text-sm font-semibold uppercase tracking-wide text-gray-900">
-        Nombre y apellido <span class="ml-1 font-bold text-red-500">*</span>
-      </label>
-      <span class="pointer-events-none absolute left-3 top-[38px] h-5 w-5 text-[var(--primary)] opacity-70">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-4 0-8 2-8 6v2h16v-2c0-4-4-6-8-6Z"/></svg>
-      </span>
-      <input id="customer_name" name="customer_name" autocomplete="name" placeholder="Ej. María Gómez" required
-        class="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 pl-10 text-base text-gray-900 transition focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-        value="{{ old('customer_name', $order->customer_name ?? '') }}"
-      />
-      <p class="msg-error mt-1 text-xs font-bold text-red-600" hidden>Ingresa tu nombre completo.</p>
-    </div>
+  @csrf
 
-    {{-- WhatsApp --}}
-    <div class="relative mb-2 flex flex-col gap-1">
-      <label class="mb-1 text-sm font-semibold uppercase tracking-wide text-gray-900">
-        WhatsApp <span class="ml-1 font-bold text-red-500">*</span>
-      </label>
-      <input id="iti_whatsapp" type="tel" placeholder="Número WhatsApp" autocomplete="tel" required
-        class="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 text-base text-gray-900 transition focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-        value="{{ old('customer_whatsapp', $order->customer_phone ?? '') }}"
-      />
-      <input type="hidden" name="country_code" id="country_code">
-      <input type="hidden" name="customer_whatsapp" id="customer_whatsapp">
-      <p class="mt-1 text-xs text-gray-400">Elige el país y escribe tu número. Ej: 4121234567</p>
-      <p class="msg-error mt-1 text-xs font-bold text-red-600" hidden>Ingresa un WhatsApp válido.</p>
-    </div>
-
-    {{-- Email --}}
-    <div class="md:col-span-2 relative mb-2 flex flex-col gap-1">
-      <label for="customer_email" class="mb-1 text-sm font-semibold uppercase tracking-wide text-gray-900">
-        Email <span class="ml-1 font-bold text-red-500">*</span>
-      </label>
-      <span class="pointer-events-none absolute left-3 top-[38px] h-5 w-5 text-[var(--primary)] opacity-70">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 4-8 5-8-5V6l8 5 8-5Z"/></svg>
-      </span>
-      <input id="customer_email" type="email" name="customer_email" autocomplete="email" placeholder="tu@correo.com" required
-        class="w-full rounded-lg border border-gray-200 bg-gray-50 px-4 py-2 pl-10 text-base text-gray-900 transition focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
-        value="{{ old('customer_email', $order->customer_email ?? '') }}"
-      />
-      <p class="mt-1 text-xs text-gray-400">Te enviaremos aquí tu confirmación.</p>
-      <p class="msg-error mt-1 text-xs font-bold text-red-600" hidden>Ingresa un correo válido.</p>
-    </div>
+  {{-- DATOS DEL CLIENTE (Compacto) --}}
+<div class="grid gap-2 md:grid-cols-2"> {{-- gap-2 en vez de gap-4 --}}
+  {{-- Nombre --}}
+  <div class="relative flex flex-col gap-0.5"> {{-- gap-0.5 --}}
+    <label for="customer_name" class="mb-0.5 text-sm font-semibold uppercase tracking-wide text-gray-900">
+      Nombre y apellido <span class="ml-1 font-bold text-red-500">*</span>
+    </label>
+    <span class="pointer-events-none absolute left-2 top-[36px] h-5 w-5 text-[var(--primary)] opacity-70">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5Zm0 2c-4 0-8 2-8 6v2h16v-2c0-4-4-6-8-6Z"/></svg>
+    </span>
+    <input id="customer_name" name="customer_name" autocomplete="name" placeholder="Ej. María Gómez" required
+      class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 pl-9 text-base text-gray-900 transition focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+      value="{{ old('customer_name', $order->customer_name ?? '') }}"
+    />
+    <p class="msg-error mt-0.5 text-xs font-bold text-red-600" hidden>Ingresa tu nombre completo.</p>
   </div>
+
+  {{-- WhatsApp --}}
+  <div class="relative flex flex-col gap-0.5">
+    <label class="mb-0.5 text-sm font-semibold uppercase tracking-wide text-gray-900">
+      WhatsApp <span class="ml-1 font-bold text-red-500">*</span>
+    </label>
+    <input id="iti_whatsapp" type="tel" placeholder="Número WhatsApp" autocomplete="tel" required
+      class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-base text-gray-900 transition focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+      value="{{ old('customer_whatsapp', $order->customer_phone ?? '') }}"
+    />
+    <input type="hidden" name="country_code" id="country_code">
+    <input type="hidden" name="customer_whatsapp" id="customer_whatsapp">
+    <p class="mt-0.5 text-xs text-gray-400">Elige el país y escribe tu número. Ej: 4121234567</p>
+    <p class="msg-error mt-0.5 text-xs font-bold text-red-600" hidden>Ingresa un WhatsApp válido.</p>
+  </div>
+
+  {{-- Email --}}
+  <div class="md:col-span-2 relative flex flex-col gap-0.5">
+    <label for="customer_email" class="mb-0.5 text-sm font-semibold uppercase tracking-wide text-gray-900">
+      Email <span class="ml-1 font-bold text-red-500">*</span>
+    </label>
+    <span class="pointer-events-none absolute left-2 top-[36px] h-5 w-5 text-[var(--primary)] opacity-70">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2Zm0 4-8 5-8-5V6l8 5 8-5Z"/></svg>
+    </span>
+    <input id="customer_email" type="email" name="customer_email" autocomplete="email" placeholder="tu@correo.com" required
+      class="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 pl-9 text-base text-gray-900 transition focus:outline-none focus:ring-2 focus:ring-[var(--primary)]"
+      value="{{ old('customer_email', $order->customer_email ?? '') }}"
+    />
+    <p class="mt-0.5 text-xs text-gray-400">Te enviaremos aquí tu confirmación.</p>
+    <p class="msg-error mt-0.5 text-xs font-bold text-red-600" hidden>Ingresa un correo válido.</p>
+  </div>
+</div>
+
 
   {{-- METODOS DE PAGO --}}
   <div
@@ -326,7 +336,10 @@
                 </div>
               </template>
               <div x-show="!fileUrl" class="flex flex-col items-center justify-center">
-                <svg class="mb-2 h-6 w-6 text-red-500" viewBox="0 0 24 24" fill="currentColor"><path d="M14 2H6a2 2 0 0 0-2 2v16l4-4h10a2 2 0 0 0 2-2V8l-6-6Z"/></svg>
+                <svg class="mb-2 h-6 w-6 text-red-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 4a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10Z"/>
+</svg>
+
                 <div class="mt-1">Arrastra tu comprobante aquí o haz <span class="underline font-semibold">clic</span> para seleccionarlo</div>
                 <div class="mt-2 text-xs text-gray-500">Formatos: JPG, PNG, PDF | Máx 5MB.</div>
               </div>
@@ -436,64 +449,136 @@
     // Si es Alpine (preferido)
     if (modal && modal.__x) {
       modal.__x.$data.show = false;
-    } else {
+    } else if (modal) {
       modal.style.display = 'none';
     }
   }
 </script>
 
-
-{{-- intl-tel-input --}}
+<!-- intl-tel-input (fuera de cualquier <script>) -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.6/build/css/intlTelInput.css">
 <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.6/build/js/intlTelInput.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.6/build/js/utils.js"></script>
-<script>
-  document.addEventListener('DOMContentLoaded', function(){
-    const input = document.getElementById('iti_whatsapp');
-    if(!input || !window.intlTelInput) return;
-    const iti = window.intlTelInput(input, {
-      initialCountry: 've',
-      preferredCountries: ['ve','co','ec','pe','cl','ar','mx','us','pa','br'],
-      separateDialCode: true,
-      utilsScript: 'https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.6/build/js/utils.js',
-    });
-    const hiddenCode  = document.getElementById('country_code');
-    const hiddenPhone = document.getElementById('customer_whatsapp');
-    function syncFields(){
-      const c = iti.getSelectedCountryData();
-      if(hiddenCode)  hiddenCode.value  = '+' + (c?.dialCode || '');
-      if(hiddenPhone) hiddenPhone.value = (input.value || '').replace(/[^\d]/g, '');
-    }
-    input.addEventListener('countrychange', syncFields);
-    input.addEventListener('input', syncFields);
-    syncFields();
-  });
-</script>
 
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-  const form = document.getElementById('inlinePayForm');
-  const voucherInput = document.getElementById('voucherInput');
-  form.addEventListener('submit', function(e) {
-    // Detecta si el campo comprobante es visible y requerido
-    const voucherSection = document.querySelector('[x-show="showVoucher"]');
-    const isVoucherVisible = voucherSection && voucherSection.offsetParent !== null;
-    if (isVoucherVisible && (!voucherInput || !voucherInput.files.length)) {
-      e.preventDefault();
-      let modal = document.getElementById('voucherModal');
-      // Si usas Alpine, muestra el modal con Alpine; si no, usa display normal
-      if (modal && modal.__x) {
-        modal.__x.$data.show = true;
-      } else {
-        modal.style.display = 'flex';
+(function () {
+  document.addEventListener('DOMContentLoaded', function () {
+    // ====== intl-tel-input (sin conflictos) ======
+    try {
+      const input = document.getElementById('iti_whatsapp');
+      if (input && window.intlTelInput) {
+        const iti = window.intlTelInput(input, {
+          initialCountry: 've',
+          preferredCountries: ['ve','co','ec','pe','cl','ar','mx','us','pa','br'],
+          separateDialCode: true,
+          utilsScript: 'https://cdn.jsdelivr.net/npm/intl-tel-input@19.5.6/build/js/utils.js',
+        });
+        const hiddenCode  = document.getElementById('country_code');
+        const hiddenPhone = document.getElementById('customer_whatsapp');
+        const syncFields = () => {
+          const c = iti.getSelectedCountryData();
+          if (hiddenCode)  hiddenCode.value  = '+' + (c?.dialCode || '');
+          if (hiddenPhone) hiddenPhone.value = (input.value || '').replace(/[^\d]/g, '');
+        };
+        input.addEventListener('countrychange', syncFields);
+        input.addEventListener('input',        syncFields);
+        syncFields();
       }
-      // Focus al botón para UX
-      setTimeout(() => {
-        modal.querySelector('button').focus();
-      }, 10);
-      return false;
+    } catch (err) {
+      console.warn('intl-tel-input init warning:', err);
     }
+
+    // ====== Submit (validación + fetch + redirect) ======
+    const form = document.getElementById('inlinePayForm');
+    if (!form) return;
+
+    // Evita listeners duplicados SIN tocar el DOM (no clonamos nodos Alpine)
+    if (form._submitAbortCtrl) form._submitAbortCtrl.abort();
+    const abortCtrl = new AbortController();
+    form._submitAbortCtrl = abortCtrl;
+
+    const voucherInput = document.getElementById('voucherInput');
+    const inlineMsg    = document.getElementById('inlineMsg');
+
+    const isVisible = (el) => !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length));
+
+    form.addEventListener('submit', async (e) => {
+      // 1) Validar comprobante si el bloque está visible (x-show)
+      const voucherSection = document.querySelector('#inlinePayForm [x-show="showVoucher"]');
+      const needsVoucher   = isVisible(voucherSection);
+      if (needsVoucher && (!voucherInput || !voucherInput.files || !voucherInput.files.length)) {
+        e.preventDefault();
+        const modal = document.getElementById('voucherModal');
+        if (modal) {
+          try { modal.__x ? modal.__x.$data.show = true : (modal.style.display = 'flex'); }
+          catch { modal.style.display = 'flex'; }
+          setTimeout(() => modal.querySelector('button')?.focus(), 10);
+        }
+        return false;
+      }
+
+      // 2) Enviar por fetch para capturar JSON y redirigir
+      e.preventDefault();
+      if (inlineMsg) inlineMsg.textContent = '';
+
+      const action = form.getAttribute('action') || form.dataset.payUrl || '#';
+      const fd     = new FormData(form);
+
+      try {
+        const resp = await fetch(action, {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: fd,
+          signal: abortCtrl.signal
+        });
+
+        const ct = (resp.headers.get('content-type') || '').toLowerCase();
+        if (!ct.includes('application/json')) {
+          // Fallback: si el server redirige con HTML
+          const tenant = form.dataset.tenantSlug || window.location.pathname.split('/')[2];
+          const code   = form.dataset.orderCode;
+          if (tenant && code) {
+            window.location.href = `${window.location.origin}/t/${tenant}/checkout/${code}/confirmacion`;
+          } else {
+            window.location.reload();
+          }
+          return;
+        }
+
+        let data = {};
+        try { data = await resp.json(); } catch {}
+
+        if (data && data.ok) {
+          if (data.redirect) {
+            window.location.href = data.redirect; // URL que manda el backend
+            return;
+          }
+          // Fallback: construir confirmación
+          const tenant = form.dataset.tenantSlug || window.location.pathname.split('/')[2];
+          const code   = form.dataset.orderCode;
+          if (tenant && code) {
+            window.location.href = `${window.location.origin}/t/${tenant}/checkout/${code}/confirmacion`;
+            return;
+          }
+        }
+
+        const msg = (data && (data.message || data.error)) || 'No fue posible enviar el pago.';
+        if (inlineMsg) inlineMsg.textContent = msg;
+
+      } catch (err) {
+        if (err.name === 'AbortError') return; // listener anterior cancelado
+        if (inlineMsg) inlineMsg.textContent = 'Error de red. Intenta nuevamente.';
+        console.error(err);
+      }
+
+      return false;
+    }, { signal: abortCtrl.signal });
   });
-});
+})();
 </script>
+
+
 
