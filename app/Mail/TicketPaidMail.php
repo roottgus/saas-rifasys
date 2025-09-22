@@ -6,90 +6,72 @@ use App\Models\Order;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Storage; // <-- Necesario
+use Illuminate\Support\Facades\URL;      // <-- Necesario
 
 class TicketPaidMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    public array $footerGifs = [];
+    public Order $order;
 
-    public function __construct(public Order $order) {}
+    public function __construct(Order $order)
+    {
+        $this->order = $order;
+    }
 
     public function build()
     {
-        // Carga relaciones necesarias (ajusta los nombres si difieren)
-        $order  = $this->order->loadMissing(['tenant', 'rifa', 'items']);
+        // Cargar relaciones necesarias
+        $order = $this->order->loadMissing(['tenant', 'rifa', 'items', 'paymentAccount']);
         $tenant = $order->tenant;
 
-        // Lista de boletos en formato "016, 039, ..."
-        $tickets = $order->items->pluck('numero')->sort()->implode(', ');
-
-        // URL para verificar la orden/ticket
-        $verifyUrl = route('store.verify', [
-            'tenant' => $tenant->slug ?? $tenant->id,
-            'code'   => $order->code,
-        ]);
-
-        // QR opcional (si tienes simple-qrcode instalado)
-        $qrPng = null;
-        if (class_exists(\SimpleSoftwareIO\QrCode\Facades\QrCode::class)) {
-            $qrPng = \SimpleSoftwareIO\QrCode\Facades\QrCode::format('png')
-                ->size(440)->margin(1)->generate($verifyUrl);
+        if (!$tenant) {
+            \Log::error('Tenant no encontrado para la orden: ' . $order->id);
+            throw new \Exception('Tenant no encontrado');
         }
 
-        // ----------- FOOTER GIFS universal -----------
-        $this->footerGifs = [];
-        $footerGifPaths = [];
-        foreach (['qr.gif', 'factura.gif', 'check.gif'] as $f) {
-            $p = storage_path('app/public/email/' . $f);
-            if (is_file($p)) {
-                $footerGifPaths[] = $p;
+        // LOGO URL ABSOLUTA
+        $logoUrl = null;
+        if ($tenant && method_exists($tenant, 'brandSettings')) {
+            $brand = $tenant->brandSettings()->first();
+            if ($brand && $brand->logo_path) {
+                $logoUrl = url(Storage::url($brand->logo_path)); // <-- SIEMPRE ABSOLUTA
             }
         }
-        $gifCidMap = [];
-        foreach ($footerGifPaths as $p) {
-            $id = 'gif-' . pathinfo($p, PATHINFO_FILENAME) . '-' . uniqid();
-            $gifCidMap[] = ['id' => $id, 'path' => $p];
-            $this->footerGifs[] = 'cid:' . $id;
-        }
-        $this->withSymfonyMessage(function ($message) use ($gifCidMap) {
-            foreach ($gifCidMap as $row) {
-                $message->embedFromPath($row['path'], $row['id'], 'image/gif');
-            }
-        });
-        // ---------------------------------------------
 
-        // Datos para la vista (coinciden con el diseño corporativo que definimos)
-        $data = [
-            // Branding
-            'tenantName'    => $tenant->name ?? config('app.name'),
-            'tenantUrl'     => url("/t/{$tenant->slug}"),
-            'logoUrl'       => $tenant->logo_url ?? asset('img/logo-mail.png'),
-            'primary'       => $tenant->color_primary ?? '#1d4ed8',
+        // Configuración de remitente
+        $fromEmail = $tenant->from_email ?? config('mail.from.address', 'noreply@rifasys.com');
+        $fromName = $tenant->from_name ?? ($tenant->name ?? config('mail.from.name', 'Rifasys'));
 
-            // Orden / Rifa
-            'orderCode'     => $order->code,
-            'customerName'  => $order->customer_name,
-            'customerEmail' => $order->customer_email,
-            'rifaTitle'     => optional($order->rifa)->titulo ?? optional($order->rifa)->nombre,
-            'tickets'       => $tickets,
-            'totalUsd'      => '$' . number_format((float) $order->total_amount, 2),
+        // Reply-To
+        $replyTo = $tenant->reply_to_email ?? $fromEmail;
+        $replyToName = $tenant->reply_to_name ?? $fromName;
 
-            // Enlaces
-            'verifyUrl'     => $verifyUrl,
-
-            // Binario PNG para usar en el Blade con $message->embedData(...)
-            'qrPng'         => $qrPng,
-
-            // GIFs footer
-            'footerGifs'    => $this->footerGifs,
+        // Datos para la vista
+        $viewData = [
+            'order' => $order,
+            'tenant' => $tenant,
+            'verifyUrl' => route('store.verify', [
+                'tenant' => $tenant->slug ?? $tenant->id,
+                'code' => $order->code,
+            ]),
+            'title' => 'Pago verificado – ¡Participación confirmada!',
+            'subtitle' => 'Hemos verificado tu pago y tus boletos quedaron confirmados para el sorteo.',
+            'badge' => [
+                'text' => 'Pagado',
+                'bg' => '#dcfce7',
+                'color' => '#166534'
+            ],
+            'preheader' => 'Tu pago ha sido confirmado y tus boletos están activos.',
+            'footerText' => 'Powered by Rifasys • Sistema 100% seguro',
+            'logoUrl' => $logoUrl, // <- AHORA SIEMPRE VIENE ABSOLUTA
         ];
 
         return $this->subject('¡Tu(s) ticket(s) confirmado(s)! ' . $order->code)
+            ->from($fromEmail, $fromName)
+            ->replyTo($replyTo, $replyToName)
             ->view('emails.ticket-paid')
-            ->with($data + [
-                'order'      => $order,
-                'footerGifs' => $this->footerGifs,
-            ]);
+            ->with($viewData);
     }
 }

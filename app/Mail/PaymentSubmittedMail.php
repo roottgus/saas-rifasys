@@ -6,6 +6,8 @@ use App\Models\Order;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Storage; // <-- IMPORTANTE
+use Illuminate\Support\Facades\URL;      // <-- IMPORTANTE
 
 class PaymentSubmittedMail extends Mailable
 {
@@ -29,6 +31,16 @@ class PaymentSubmittedMail extends Mailable
         // 🔑 Cargar relaciones NECESARIAS desde el inicio
         $order  = $this->order->loadMissing(['tenant', 'rifa', 'items', 'paymentAccount']);
         $tenant = $order->tenant;
+
+        // Logo URL dinámico y absoluta para emails
+        $logoUrl = null;
+        if ($tenant && method_exists($tenant, 'brandSettings')) {
+            $brand = $tenant->brandSettings()->first();
+            if ($brand && $brand->logo_path) {
+                // SIEMPRE ABSOLUTA
+                $logoUrl = url(Storage::url($brand->logo_path));
+            }
+        }
 
         $verifyUrl = url('/t/' . ($tenant->slug ?? $tenant->id) . '/verify?code=' . $order->code);
         $isAdmin   = $this->audience === 'admin';
@@ -89,7 +101,7 @@ class PaymentSubmittedMail extends Mailable
                 'subtitle'   => $subtitle,
                 'preheader'  => $preheader,
                 'badge'      => $badge,
-                'logoUrl'    => null,
+                'logoUrl'    => $logoUrl, // <--- SIEMPRE ABSOLUTA
                 'footerGifs' => $footerGifs,
                 'footerText' => 'Powered by Rifasys • Sistema 100% seguro',
             ]);

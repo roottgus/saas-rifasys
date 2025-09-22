@@ -474,37 +474,6 @@ public function pay(Tenant $tenant, string $code, Request $request)
 
     $order->save();
 
- // Correos "pago enviado"
-try {
-    if ($order->customer_email && filter_var($order->customer_email, FILTER_VALIDATE_EMAIL)) {
-        // Cliente recibe su correo (vista: emails/payment-submitted.blade.php)
-        Mail::to($order->customer_email)->queue(new \App\Mail\PaymentSubmittedMail($order, 'customer'));
-        \Log::info('Email encolado para el cliente', ['email' => $order->customer_email]);
-    }
-} catch (\Throwable $e) { 
-    \Log::error('Error enviando email al cliente', ['error' => $e->getMessage()]);
-    report($e); 
-}
-
-try {
-    $adminEmail = $order->tenant->notify_email
-        ?? config('mail.admin_address')
-        ?? config('mail.from.address');
-
-    if ($adminEmail && filter_var($adminEmail, FILTER_VALIDATE_EMAIL)) {
-        // Admin recibe su correo (vista: emails/orders/payment-submitted-admin.blade.php)
-        // y con Reply-To apuntando al cliente
-        Mail::to($adminEmail)->queue(new \App\Mail\PaymentSubmittedMail($order, 'admin'));
-        \Log::info('Email encolado para el admin', ['email' => $adminEmail]);
-    }
-} catch (\Throwable $e) { 
-    \Log::error('Error enviando email al admin', ['error' => $e->getMessage()]);
-    report($e); 
-}
-
-
-    // ==========================
-
     // Respuesta según tipo de request
     if ($request->expectsJson()) {
         return response()->json([

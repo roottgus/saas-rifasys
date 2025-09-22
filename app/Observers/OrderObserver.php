@@ -5,6 +5,7 @@ namespace App\Observers;
 use App\Models\Order;
 use App\Mail\TicketPaidMail;
 use App\Mail\PaymentRejectedMail;
+use App\Mail\PaymentSubmittedMail;
 use Illuminate\Support\Facades\Mail;
 
 class OrderObserver
@@ -21,33 +22,54 @@ class OrderObserver
             $originalStatus = $order->getOriginal('status');
             $verifyUrl = url('/t/' . $order->tenant->slug . '/verify?code=' . $order->code);
 
+            // ----------- Pago enviado (submitted) -----------
+            if (in_array($status, ['submitted', 'enviado', 'enviada'])) {
+                // Cliente
+                if (filter_var($order->customer_email, FILTER_VALIDATE_EMAIL)) {
+                    \Log::info('Enviando PaymentSubmittedMail a cliente', [
+                        'email' => $order->customer_email,
+                        'order' => $order->code,
+                        'status' => $status,
+                    ]);
+                    Mail::to($order->customer_email)
+                        ->queue(new PaymentSubmittedMail($order, 'customer'));
+                }
+                // Admin
+                $adminEmail = $order->tenant->notify_email
+                    ?? config('mail.admin_address')
+                    ?? config('mail.from.address');
+                if ($adminEmail && filter_var($adminEmail, FILTER_VALIDATE_EMAIL)) {
+                    \Log::info('Enviando PaymentSubmittedMail a admin', [
+                        'email' => $adminEmail,
+                        'order' => $order->code,
+                        'status' => $status,
+                    ]);
+                    Mail::to($adminEmail)
+                        ->queue(new PaymentSubmittedMail($order, 'admin'));
+                }
+            }
+
             // ----------- Pago verificado / aprobado -----------
             if (in_array($status, ['verificado', 'paid', 'pagada', 'aprobado', 'completed'])) {
                 if (filter_var($order->customer_email, FILTER_VALIDATE_EMAIL)) {
-                    // Log para debug
                     \Log::info('Enviando TicketPaidMail a usuario', [
                         'email' => $order->customer_email,
                         'order' => $order->code,
                         'status' => $status
                     ]);
                     Mail::to($order->customer_email)
-                        ->queue(new TicketPaidMail($order, $verifyUrl));
+                        ->queue(new TicketPaidMail($order));
                 } else {
                     \Log::warning('No se envió TicketPaidMail: email no válido.', [
                         'email' => $order->customer_email,
                         'order' => $order->code,
                     ]);
                 }
-
-                // (OPCIONAL) Envía notificación al admin
-                // Mail::to('no-reply@rifasys.com')
-                //     ->queue(new TicketPaidMail($order, $verifyUrl));
             }
 
             // ----------- Pago rechazado -----------
             if (in_array($status, ['rejected', 'rechazado'])) {
                 $rejectReason = $order->reject_reason ?? null;
-
                 if (filter_var($order->customer_email, FILTER_VALIDATE_EMAIL)) {
                     \Log::info('Enviando PaymentRejectedMail a usuario', [
                         'email' => $order->customer_email,
